@@ -35,7 +35,7 @@ function serializeBoard(board: Board): string[] {
   });
 }
 
-export function buildJevState({ board, player }: Position) {
+function buildJevState({ board, player }: Position) {
   return {
     game: GAME_RULES,
     you: player === BLACK ? "black" : "white",
@@ -45,7 +45,7 @@ export function buildJevState({ board, player }: Position) {
 }
 
 /** Use each legal move as a choice, with its consequences as the description. */
-export function buildMoveCriteria({ board, player }: Position) {
+function buildMoveCriteria({ board, player }: Position) {
   return Object.fromEntries(
     getLegalMoves(board, player).map((move) => {
       const nextBoard = applyMove(board, player, move);

@@ -1,3 +1,7 @@
+import type { DepartmentAnswer } from "./schema";
+
+type Department = DepartmentAnswer["choice"];
+
 export const departments = {
   support: "Support",
   engineering: "Engineering",
@@ -6,9 +10,7 @@ export const departments = {
   product: "Product Management",
   success: "Customer Success",
   unknown: "Insufficient information / Unknown department",
-};
-
-export type Department = keyof typeof departments;
+} satisfies Record<Department, string>;
 
 export const departmentRoles: Record<Department, string> = {
   support:
@@ -25,25 +27,6 @@ export const departmentRoles: Record<Department, string> = {
     "Helps customer companies onboard, adopt, and use the service in their operations. Supports workflow design and rollout across teams.",
   unknown: "The responsible department cannot be determined.",
 };
-
-export interface ScoreAnswer {
-  score: number;
-  confidence: number;
-  probabilities: Record<string, number>;
-}
-
-export interface DepartmentAnswer {
-  choice: Department;
-  confidence: number;
-  probabilities: Record<Department, number>;
-}
-
-export interface TriageResult {
-  urgency: ScoreAnswer;
-  pressure: ScoreAnswer;
-  department: DepartmentAnswer;
-  elapsed: number;
-}
 
 // Score values are positions on these scales, not probabilities of urgency.
 export const urgencyLevels = [

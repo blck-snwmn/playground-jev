@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import type { TriageResult } from "./schema";
 import { inquiries, type Inquiry } from "./data";
 import {
   departments,
@@ -7,13 +8,12 @@ import {
   rankDepartments,
   scorePercent,
   urgencyLevels,
-  type TriageResult,
 } from "./triage";
 
 export default function App() {
   const [selectedId, setSelectedId] = useState(inquiries[0].id);
-  const [results, setResults] = useState<Record<string, TriageResult>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [results, setResults] = useState<Partial<Record<string, TriageResult>>>({});
+  const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [pendingId, setPendingId] = useState<string>();
   const [busy, setBusy] = useState(false);
   const running = useRef(false);
@@ -211,9 +211,9 @@ export default function App() {
                       {label} (confidence {Math.round(answer.confidence * 100)}%)
                     </h3>
                     <ul>
-                      {levels.map((level, index) => (
-                        <li key={level}>
-                          {level}: {(answer.probabilities[String(index)] * 100).toFixed(1)}%
+                      {Object.entries(answer.probabilities).map(([score, probability]) => (
+                        <li key={score}>
+                          {levels[Number(score)]}: {(probability * 100).toFixed(1)}%
                         </li>
                       ))}
                     </ul>

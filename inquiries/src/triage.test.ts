@@ -1,7 +1,8 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { inquiries } from "./data";
-import { answersSchema, buildJevRequest, classifyInquiry } from "./jev";
-import { departmentSuggestion, scorePercent, urgencyLevels, type DepartmentAnswer } from "./triage";
+import { buildJevRequest, classifyInquiry } from "./jev";
+import { answersSchema, type DepartmentAnswer } from "./schema";
+import { departmentSuggestion, scorePercent, urgencyLevels } from "./triage";
 
 function answer(
   confidence: number,
