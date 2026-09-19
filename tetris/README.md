@@ -5,8 +5,9 @@ Watch Jev choose a reachable placement for each tetromino. Built with Bun.
 Requires Bun 1.4.2+. Mount the 1Password `jev` Environment at `tetris/.env`, or set `JEV_API_KEY` in a local `.env` (see `.env.example`). The start scripts explicitly load `.env` to support 1Password mounts.
 
 ```sh
-cd tetris
+# From the repository root
 bun install --frozen-lockfile
+cd tetris
 bun run dev
 ```
 

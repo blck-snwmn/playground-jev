@@ -5,8 +5,9 @@ Play human vs Jev, Jev vs Jev, or human vs human.
 Requires Bun 1.4.2+. Set `JEV_API_KEY` for Jev games (or mount a 1Password environment at `.env`).
 
 ```sh
-cd othello
+# From the repository root
 bun install --frozen-lockfile
+cd othello
 bun run dev
 ```
 

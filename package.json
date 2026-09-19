@@ -1,0 +1,15 @@
+{
+  "name": "playground-jev",
+  "private": true,
+  "workspaces": [
+    "othello",
+    "tetris",
+    "inquiries"
+  ],
+  "scripts": {
+    "test": "bun run --workspaces test",
+    "typecheck": "bun run --workspaces typecheck",
+    "lint": "bun run --workspaces lint",
+    "fmt:check": "bun run --workspaces fmt:check"
+  }
+}

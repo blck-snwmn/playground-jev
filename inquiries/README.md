@@ -5,8 +5,9 @@ An Astro + React + Bun app that uses Jev to assess urgency, request pressure, an
 ## Run
 
 ```sh
-cd inquiries
+# From the repository root
 bun install --frozen-lockfile
+cd inquiries
 cp .env.example .env
 # Set JEV_API_KEY in .env
 bun run dev
