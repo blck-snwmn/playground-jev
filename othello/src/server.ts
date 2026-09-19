@@ -2,7 +2,7 @@ import page from "./index.html";
 import { getLegalMoves, isPosition } from "./game";
 import { chooseJevMove, JevHttpError } from "./jev";
 
-const model = process.env.TYPESAFE_MODEL || "jev-latest";
+const model = "jev-latest";
 
 function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
@@ -38,7 +38,6 @@ async function handleJevMove(request: Request): Promise<Response> {
 
 const server = Bun.serve({
   hostname: "127.0.0.1",
-  port: Number(process.env.PORT || 3000),
   routes: {
     "/": page,
     "/api/status": () => Response.json({ configured: !!process.env.JEV_API_KEY, model }),
