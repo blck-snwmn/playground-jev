@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tetris × Jev</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header><a href="/">Tetris × Jev</a></header>
+      <section class="machine">
+        <div class="playfield">
+          <canvas
+            id="board"
+            width="300"
+            height="600"
+            aria-label="Tetris board showing Jev playing automatically"
+          ></canvas>
+        </div>
+        <aside>
+          <div class="next">
+            <span>Next piece</span
+            ><canvas id="next" width="120" height="80" aria-label="Next piece"></canvas>
+          </div>
+          <dl>
+            <div>
+              <dt>Lines cleared</dt>
+              <dd id="lines">0</dd>
+            </div>
+            <div>
+              <dt>Pieces placed</dt>
+              <dd id="pieces">0</dd>
+            </div>
+            <div>
+              <dt>Decision time</dt>
+              <dd id="elapsed">—</dd>
+            </div>
+          </dl>
+          <p id="status" role="status">Checking configuration…</p>
+          <div class="controls">
+            <button id="toggle" disabled>Start watching</button
+            ><button id="reset" class="secondary">New game</button>
+          </div>
+          <label class="speed"
+            >Animation speed<select id="speed">
+              <option value="70">Slow</option>
+              <option value="30" selected>Normal</option>
+              <option value="5">Fast</option>
+            </select></label
+          >
+        </aside>
+      </section>
+    </main>
+    <script type="module" src="./app.ts"></script>
+  </body>
+</html>

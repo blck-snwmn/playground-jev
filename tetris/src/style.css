@@ -1,0 +1,170 @@
+:root {
+  font-family: "Avenir Next", "Hiragino Kaku Gothic ProN", sans-serif;
+  color: #172449;
+  background: #e9efff;
+  font-synthesis: none;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 940px;
+  margin: auto;
+  padding: 32px 24px;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+  gap: 12px;
+}
+header a {
+  font-weight: 800;
+  font-size: 24px;
+  text-decoration: none;
+  color: inherit;
+}
+.machine {
+  background: #244bb8;
+  border-radius: 28px;
+  padding: 32px;
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) 1fr;
+  gap: 48px;
+  box-shadow: 0 12px 0 #183789;
+  color: white;
+  justify-content: center;
+}
+.playfield {
+  background: #152854;
+  padding: 8px;
+  border-radius: 8px;
+  align-self: start;
+}
+#board {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #152854;
+}
+aside {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+aside > p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #e9efff;
+}
+.next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #6a86d1;
+  padding: 6px 0;
+  font-size: 14px;
+  margin-bottom: auto;
+}
+dl {
+  margin: 20px 0;
+}
+dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 12px 0;
+}
+dt {
+  font-size: 14px;
+}
+dd {
+  font-size: 25px;
+  font-weight: 700;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+#status {
+  min-height: 52px;
+  font-size: 13px;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+button,
+select {
+  font: inherit;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+button {
+  cursor: pointer;
+  font-weight: 700;
+  color: #17367f;
+  background: white;
+}
+button.secondary {
+  background: #365dc7;
+  color: white;
+  border: 1px solid #8da4e7;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+button:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 3px solid #ffda73;
+  outline-offset: 4px;
+}
+.speed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  font-size: 13px;
+}
+.speed select {
+  padding: 6px 12px;
+  color: #172449;
+}
+@media (max-width: 620px) {
+  main {
+    padding: 20px 14px;
+  }
+  .machine {
+    padding: 20px;
+    gap: 24px;
+    grid-template-columns: 1fr;
+  }
+  .playfield {
+    width: min(100%, 270px);
+    justify-self: center;
+  }
+  .next {
+    justify-content: flex-start;
+    gap: 24px;
+  }
+  dl {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  dl > div {
+    display: block;
+  }
+  dd {
+    margin-top: 6px;
+  }
+  #status {
+    min-height: 0;
+  }
+}
