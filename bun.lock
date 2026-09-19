@@ -8,24 +8,24 @@
     "inquiries": {
       "name": "jev-inquiries",
       "dependencies": {
-        "react": "^19.3.0",
-        "react-dom": "^19.3.0",
-        "zod": "^4.6.5",
+        "react": "19.3.0",
+        "react-dom": "19.3.0",
+        "zod": "4.6.5",
       },
       "devDependencies": {
-        "@types/bun": "^1.4.2",
-        "@types/react": "^19.3.0",
-        "@types/react-dom": "^19.3.0",
+        "@types/bun": "1.4.2",
+        "@types/react": "19.3.0",
+        "@types/react-dom": "19.3.0",
         "@typescript/native-preview": "7.0.0-dev.20260707.2",
-        "oxfmt": "^0.68.0",
-        "oxlint": "^1.83.0",
+        "oxfmt": "0.68.0",
+        "oxlint": "1.83.0",
         "oxlint-tsgolint": "7.0.2002",
       },
     },
     "othello": {
       "name": "jev-othello",
       "devDependencies": {
-        "@types/bun": "^1.4.2",
+        "@types/bun": "1.4.2",
         "@typescript/native-preview": "7.0.0-dev.20260707.2",
         "oxfmt": "0.68.0",
         "oxlint": "1.83.0",
@@ -35,7 +35,7 @@
     "tetris": {
       "name": "jev-tetris",
       "devDependencies": {
-        "@types/bun": "^1.4.2",
+        "@types/bun": "1.4.2",
         "@typescript/native-preview": "7.0.0-dev.20260707.2",
         "oxfmt": "0.68.0",
         "oxlint": "1.83.0",
