@@ -1,6 +1,6 @@
 # Inquiry triage × Jev
 
-An Astro + React + Bun app that uses Jev to assess urgency, request pressure, and department recommendations for 12 fictional inquiries.
+A React + Bun app that uses Jev to assess urgency, request pressure, and department recommendations for 12 fictional inquiries.
 
 ## Run
 
@@ -13,13 +13,15 @@ cp .env.example .env
 bun run dev
 ```
 
+Open http://127.0.0.1:4325. Use `PORT` to change the port.
+
 ## Commands
 
 ```sh
-bun run test       # Tests without API calls
-bun run typecheck # Astro check
-bun run lint      # Oxlint
-bun run fmt:check # Oxfmt (.astro files excluded)
+bun run test
+bun run typecheck
+bun run lint
+bun run fmt:check
 bun run build
 bun run start     # Run the built app
 ```

@@ -1,8 +1,7 @@
-import type { APIRoute } from "astro";
-import { inquiries } from "../../data";
-import { classifyInquiry } from "../../jev";
+import { inquiries } from "./data";
+import { classifyInquiry } from "./jev";
 
-export const POST: APIRoute = async ({ request }) => {
+export async function handleTriage(request: Request): Promise<Response> {
   if (request.headers.get("origin") !== new URL(request.url).origin) {
     return Response.json({ error: "Please run classification from this page." }, { status: 403 });
   }
@@ -17,7 +16,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!inquiry) {
     return Response.json({ error: "Inquiry not found." }, { status: 400 });
   }
-  const apiKey = process.env.JEV_API_KEY ?? import.meta.env.JEV_API_KEY;
+  const apiKey = process.env.JEV_API_KEY;
   if (!apiKey) {
     return Response.json(
       {
@@ -38,4 +37,4 @@ export const POST: APIRoute = async ({ request }) => {
       { status: 502 },
     );
   }
-};
+}

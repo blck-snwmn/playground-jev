@@ -1,4 +1,4 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["node_modules", "dist", ".astro", ".env", ".env.*", "bun.lock", "**/*.astro"]
+  "ignorePatterns": ["node_modules", "dist", ".astro", ".env", ".env.*", "bun.lock"]
 }
