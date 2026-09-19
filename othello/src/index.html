@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Othello / Jev Playground</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header><a href="/">Jev Playground</a></header>
+    <main>
+      <section class="table">
+        <div class="title">
+          <h1>Othello</h1>
+          <span id="connection">Checking connection</span>
+        </div>
+        <div class="score">
+          <div>
+            <i class="disc black"></i><span id="black-name">Human</span
+            ><strong id="black-score">2</strong>
+          </div>
+          <span class="versus">vs</span>
+          <div>
+            <strong id="white-score">2</strong><span id="white-name">Jev</span
+            ><i class="disc white"></i>
+          </div>
+        </div>
+        <div class="board-frame">
+          <div class="columns">
+            <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span
+            ><span>g</span><span>h</span>
+          </div>
+          <div id="board" class="board" aria-label="Othello board"></div>
+        </div>
+        <div class="status">
+          <span id="status" role="status" aria-live="polite"></span
+          ><span id="move-count">0 moves</span>
+        </div>
+      </section>
+      <aside>
+        <section class="setup">
+          <h2>New game</h2>
+          <label for="mode">Game mode</label
+          ><select id="mode">
+            <option value="human-jev">Human vs Jev</option>
+            <option value="jev-jev">Jev vs Jev</option>
+            <option value="human-human">Human vs Human</option>
+          </select>
+          <label for="color">Your color</label
+          ><select id="color">
+            <option value="1">Black (first)</option>
+            <option value="-1">White (second)</option>
+          </select>
+          <button id="new" class="primary">Start game</button>
+          <div class="controls">
+            <button id="pause" disabled>Pause</button><button id="step" disabled>Next move</button>
+          </div>
+          <p class="note">
+            Pause Jev games to inspect one move at a time. Each Jev move makes an API request.
+          </p>
+          <p id="error" role="alert"></p>
+        </section>
+        <section class="history">
+          <div class="history-title">
+            <h2>Move history</h2>
+            <span id="total-time">Jev requests: 0</span>
+          </div>
+          <p id="empty">Moves and Jev decisions appear here once a game starts.</p>
+          <ol id="log"></ol>
+        </section>
+      </aside>
+    </main>
+    <script type="module" src="./app.ts"></script>
+  </body>
+</html>
