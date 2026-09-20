@@ -72,7 +72,8 @@ aside > p {
   font-size: 14px;
   flex-shrink: 0;
 }
-#next {
+#next,
+#hold {
   width: 78px;
   height: 52px;
 }
@@ -220,4 +221,17 @@ a:focus-visible {
 }
 #ticket-cooldown {
   color: #ffda73;
+}
+
+.piece-previews {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.piece-previews .next {
+  min-width: 0;
+  gap: 6px;
+}
+.hold-used {
+  opacity: 0.55;
 }

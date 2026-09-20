@@ -58,8 +58,15 @@ export interface Position {
   piece: Piece;
   next: Piece;
   activePose?: Pose;
+  hold?: Piece | null;
+  canHold?: boolean;
+  nextAfter?: Piece;
 }
 export interface Placement {
+  useHold: boolean;
+  piece: Piece;
+  next: Piece;
+  hold: Piece | null;
   id: string;
   pose: Pose;
   path: Pose[];
@@ -108,7 +115,7 @@ export function metrics(board: Board) {
   };
 }
 /** Reachable placements using left, right, down and clockwise rotation; no wall kicks or hold. */
-export function placements({ board, piece, activePose }: Position): Placement[] {
+export function placements({ board, piece, next, hold, activePose }: Position): Placement[] {
   const start: Pose = activePose ?? { x: 3, y: 0, rotation: 0 };
   if (!fits(board, piece, start)) return [];
   const key = (p: Pose) => `${p.x},${p.y},${p.rotation}`;
@@ -126,7 +133,17 @@ export function placements({ board, piece, activePose }: Position): Placement[] 
       if (!landed.has(signature)) {
         landed.add(signature);
         const outcome = lock(board, piece, pose);
-        result.push({ id: `p${result.length}`, pose, path, ...outcome, ...metrics(outcome.board) });
+        result.push({
+          id: `p${result.length}`,
+          useHold: false,
+          piece,
+          next,
+          hold: hold ?? null,
+          pose,
+          path,
+          ...outcome,
+          ...metrics(outcome.board),
+        });
       }
     }
     const successors = [
@@ -143,12 +160,69 @@ export function placements({ board, piece, activePose }: Position): Placement[] 
   }
   return result;
 }
+export const spawnPose = (): Pose => ({ x: 3, y: 0, rotation: 0 });
+
+/** Include one hold followed by a placement, only while the active piece is valid. */
+export function moveCandidates(position: Position): Placement[] {
+  const normal = placements(position);
+  if (
+    !position.canHold ||
+    !fits(position.board, position.piece, position.activePose ?? spawnPose())
+  )
+    return normal;
+  if (!position.hold && !position.nextAfter) return normal;
+  const swapped: Position = {
+    ...position,
+    piece: position.hold ?? position.next,
+    next: position.hold ? position.next : position.nextAfter!,
+    hold: position.piece,
+    canHold: false,
+    activePose: spawnPose(),
+  };
+  return [...normal, ...placements(swapped).map((p) => ({ ...p, id: `h${p.id}`, useHold: true }))];
+}
+
+export function applyHold(position: Position, draw: () => Piece): Position {
+  if (
+    !position.canHold ||
+    (!position.hold && !position.nextAfter) ||
+    !fits(position.board, position.piece, position.activePose ?? spawnPose()) ||
+    !fits(position.board, position.hold ?? position.next, spawnPose())
+  )
+    throw new Error("Hold unavailable");
+  return {
+    ...position,
+    piece: position.hold ?? position.next,
+    next: position.hold ? position.next : position.nextAfter!,
+    nextAfter: position.hold ? position.nextAfter : draw(),
+    hold: position.piece,
+    canHold: false,
+    activePose: spawnPose(),
+  };
+}
+
+export function advancePiece(position: Position, board: Board, draw: () => Piece): Position {
+  return {
+    board,
+    piece: position.next,
+    next: position.nextAfter ?? draw(),
+    nextAfter: draw(),
+    hold: position.hold ?? null,
+    canHold: true,
+    activePose: spawnPose(),
+  };
+}
+
 export function isPosition(value: unknown): value is Position {
   if (!value || typeof value !== "object") return false;
   const p = value as Position;
   return (
     PIECES.includes(p.piece) &&
     PIECES.includes(p.next) &&
+    (p.hold === undefined || p.hold === null || PIECES.includes(p.hold)) &&
+    (p.canHold === undefined || typeof p.canHold === "boolean") &&
+    (p.nextAfter === undefined || PIECES.includes(p.nextAfter)) &&
+    (!p.canHold || !!p.hold || p.nextAfter !== undefined) &&
     (p.activePose === undefined ||
       (p.activePose !== null &&
         typeof p.activePose === "object" &&

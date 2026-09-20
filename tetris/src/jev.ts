@@ -4,26 +4,35 @@ export function buildJevRequest(position: Position, model: string, candidates: P
   return {
     model,
     state: {
-      game: "Tetris on a 10x20 board. Choose a reachable placement. Full rows clear. Survive and clear as many lines as possible. No hold or wall kicks.",
+      game: "Tetris on a 10x20 board. Choose a reachable placement. Full rows clear. Survive and clear as many lines as possible. No wall kicks. Hold is allowed once per piece before locking. Holding swaps the active piece with the held piece, or takes the next piece if hold is empty. The replacement starts at the top in its initial orientation.",
       board: position.board.map((row) => row.map((c) => (c ? "#" : ".")).join("")),
       legend: "Rows run top to bottom. # occupied, . empty.",
       piece: position.piece,
       next: position.next,
+      hold: position.hold ?? null,
+      canHold: position.canHold ?? false,
       activePose: position.activePose ?? { x: 3, y: 0, rotation: 0 },
       currentMetrics,
       metricGuide:
-        "holes counts empty cells with an occupied cell above in the same column; height is maximum column height; bumpiness is the sum of adjacent column height differences. Candidate metrics are measured after placement and line clears. delta is candidate minus current: positive means an increase. lines counts rows cleared by this move. nextCanSpawn indicates whether the next piece fits at its spawn position after this placement and line clears, assuming no further obstacles are added; false means immediate game over on the next turn.",
+        "holes counts empty cells with an occupied cell above in the same column; height is maximum column height; bumpiness is the sum of adjacent column height differences. Candidate metrics are measured after placement and line clears. delta is candidate minus current: positive means an increase. lines counts rows cleared by this move. nextCanSpawn indicates whether the candidate's next piece fits at its spawn position after this placement and line clears, assuming no further obstacles are added; false means immediate game over on the next turn. When using an empty hold, the following next piece is not yet visible: next and nextCanSpawn are null (unknown), not safe or fatal.",
     },
     questions: {
       move: {
         type: "choice",
         instructions:
-          "Choose a placement to survive and clear lines. Survival takes priority over all other metrics: if any candidate has nextCanSpawn=true, choose one of those candidates. When the stack is high and space near the top is limited, prioritize line clears and keeping stack height low over making the surface flatter; accept a modest increase in holes if needed to avoid a dangerous increase in height. Otherwise, prioritize avoiding an increase in buried holes over making the surface flatter. Do not create buried holes merely to reduce bumpiness. Compare each candidate with currentMetrics using delta; apply the survival and high-stack priorities first, then prefer preserving or reducing holes and consider line clears, stack height, and surface shape. Consider the next piece.",
+          "Choose a placement to survive and clear lines. Survival takes priority over all other metrics: avoid candidates with nextCanSpawn=false when alternatives exist. A null nextCanSpawn is unknown; evaluate that candidate using its board and other metrics. When the stack is high and space near the top is limited, prioritize line clears and keeping stack height low over making the surface flatter; accept a modest increase in holes if needed to avoid a dangerous increase in height. Otherwise, prioritize avoiding an increase in buried holes over making the surface flatter. Do not create buried holes merely to reduce bumpiness. Compare each candidate with currentMetrics using delta; apply the survival and high-stack priorities first, then prefer preserving or reducing holes and consider line clears, stack height, and surface shape. Compare both normal and hold placements. Consider the candidate-specific next piece and the piece retained in hold for recovery. Use only the supplied candidates.",
         criteria: Object.fromEntries(
           candidates.map((p) => [
             p.id,
             {
-              nextCanSpawn: fits(p.board, position.next, { x: 3, y: 0, rotation: 0 }),
+              useHold: p.useHold,
+              piece: p.piece,
+              next: p.useHold && !position.hold ? null : position.next,
+              holdAfter: p.hold,
+              nextCanSpawn:
+                p.useHold && !position.hold
+                  ? null
+                  : fits(p.board, position.next, { x: 3, y: 0, rotation: 0 }),
               lines: p.lines,
               holes: p.holes,
               height: p.height,

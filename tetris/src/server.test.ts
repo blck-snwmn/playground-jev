@@ -84,3 +84,45 @@ test("uses and logs the current pose when choosing a replacement path", async ()
   expect(logged.position).toMatchObject({ activePose });
   expect(logged.request).toMatchObject({ state: { activePose } });
 });
+
+test("accepts hold choices and logs the hold and preview state", async () => {
+  process.env.JEV_API_KEY = "test-key";
+  fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(
+    Response.json({ answers: { move: { choice: "hp0" } } }),
+  );
+  logSpy = spyOn(logs, "appendLog").mockResolvedValue(undefined);
+  const response = await handleMove(
+    new Request("http://localhost:3001/api/jev", {
+      method: "POST",
+      headers: { origin: "http://localhost:3001", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        board: emptyBoard(),
+        piece: "T",
+        next: "I",
+        nextAfter: "O",
+        hold: null,
+        canHold: true,
+        gameId: crypto.randomUUID(),
+        turn: 1,
+      }),
+    }),
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ choice: "hp0" });
+  const sentBody = fetchSpy.mock.calls[0][1]?.body;
+  if (typeof sentBody !== "string") throw new Error("Expected a JSON request body");
+  const sent: unknown = JSON.parse(sentBody);
+  expect(sent).not.toHaveProperty("state.nextAfter");
+  expect(sent).toHaveProperty("questions.move.criteria.hp0.next", null);
+  expect(sent).toHaveProperty("questions.move.criteria.hp0.nextCanSpawn", null);
+  expect(logSpy.mock.calls[0][1].request).toMatchObject({
+    state: { hold: null, canHold: true },
+    questions: {
+      move: {
+        criteria: {
+          hp0: { useHold: true, piece: "I", next: null, holdAfter: "T", nextCanSpawn: null },
+        },
+      },
+    },
+  });
+});

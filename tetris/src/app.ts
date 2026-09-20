@@ -3,7 +3,10 @@ import {
   cells,
   createBag,
   emptyBoard,
-  placements,
+  moveCandidates,
+  applyHold,
+  advancePiece,
+  spawnPose,
   lock,
   pathMoves,
   stepMove,
@@ -39,7 +42,14 @@ const colors = [
 ];
 let gameId = crypto.randomUUID();
 let drawPiece = createBag();
-let position: Position = { board: emptyBoard(), piece: drawPiece(), next: drawPiece() };
+let position: Position = {
+  board: emptyBoard(),
+  piece: drawPiece(),
+  next: drawPiece(),
+  nextAfter: drawPiece(),
+  hold: null,
+  canHold: true,
+};
 let running = false,
   configured = false,
   gameOver = false,
@@ -48,7 +58,6 @@ let running = false,
   totalLines = 0,
   totalPieces = 0;
 let controller: AbortController | undefined;
-const spawnPose = (): Pose => ({ x: 3, y: 0, rotation: 0 });
 let activePose = spawnPose();
 let tickets: Obstacle[] = [];
 let placingObstacle = false;
@@ -228,6 +237,22 @@ function render(pose: Pose = activePose) {
   preview.clearRect(0, 0, 120, 80);
   for (const [x, y] of cells(position.next, { x: 0, y: 0, rotation: 0 }))
     paint(preview, x, y, PIECES.indexOf(position.next) + 1, 26);
+  const holdCanvas = element<HTMLCanvasElement>("hold");
+  const held = holdCanvas.getContext("2d")!;
+  held.clearRect(0, 0, 120, 80);
+  if (position.hold) {
+    for (const [x, y] of cells(position.hold, { x: 0, y: 0, rotation: 0 }))
+      paint(held, x, y, PIECES.indexOf(position.hold) + 1, 26);
+  } else {
+    held.fillStyle = "#c4d2f4";
+    held.font = "18px sans-serif";
+    held.fillText("Empty", 12, 40);
+  }
+  holdCanvas.setAttribute(
+    "aria-label",
+    `Hold: ${position.hold ?? "empty"}. ${position.canHold ? "Available" : "Used this turn"}`,
+  );
+  element("hold-slot").classList.toggle("hold-used", !position.canHold);
   element("lines").textContent = String(totalLines);
   element("pieces").textContent = String(totalPieces);
 }
@@ -248,6 +273,7 @@ async function recordEvent(type: "placed" | "game_over", requestId?: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       ...position,
+      activePose,
       gameId,
       turn: type === "placed" ? totalPieces : totalPieces + 1,
       type,
@@ -270,7 +296,7 @@ async function play() {
         await waitForPlacement(version);
         if (version !== epoch) return;
         const snapshot = { ...position, activePose: { ...activePose } };
-        const candidates = placements(snapshot);
+        const candidates = moveCandidates(snapshot);
         if (!candidates.length) {
           gameOver = true;
           running = false;
@@ -300,10 +326,17 @@ async function play() {
           throw error;
         }
         if (version !== epoch) return;
+        await waitForPlacement(version);
+        if (version !== epoch) return;
         if (position.board !== snapshot.board) continue decisions;
         if (!response.ok) throw new Error(data.error || "Could not get a decision from Jev.");
         const choice = candidates.find((p) => p.id === data.choice);
         if (!choice) throw new Error("Could not read the placement. Resume to retry.");
+        if (choice.useHold) {
+          position = applyHold({ ...position, activePose }, drawPiece);
+          activePose = spawnPose();
+          render();
+        }
         requestId = data.requestId;
         replanning = false;
         element("elapsed").textContent = `${((data.elapsed || 0) / 1000).toFixed(2)} s`;
@@ -337,7 +370,7 @@ async function play() {
       totalLines += outcome.lines;
       totalPieces++;
       cooldownRemaining = Math.max(0, cooldownRemaining - 1);
-      position = { board: outcome.board, piece: position.next, next: drawPiece() };
+      position = advancePiece(position, outcome.board, drawPiece);
       activePose = spawnPose();
       render();
       await recordEvent("placed", requestId);
@@ -370,7 +403,14 @@ element("reset").addEventListener("click", () => {
   running = false;
   controller?.abort();
   drawPiece = createBag();
-  position = { board: emptyBoard(), piece: drawPiece(), next: drawPiece() };
+  position = {
+    board: emptyBoard(),
+    piece: drawPiece(),
+    next: drawPiece(),
+    nextAfter: drawPiece(),
+    hold: null,
+    canHold: true,
+  };
   placingObstacle = false;
   obstacleBlocked = false;
   replanning = false;

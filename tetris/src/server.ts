@@ -1,5 +1,5 @@
 import page from "./index.html";
-import { isPosition, placements } from "./game";
+import { isPosition, moveCandidates } from "./game";
 import { appendLog, isLogContext, isUuid } from "./log";
 import { buildJevRequest, chooseMove } from "./jev";
 export async function handleMove(request: Request): Promise<Response> {
@@ -13,7 +13,7 @@ export async function handleMove(request: Request): Promise<Response> {
   }
   if (!isPosition(position) || !isLogContext(position))
     return Response.json({ error: "No valid placements available." }, { status: 400 });
-  const candidates = placements(position);
+  const candidates = moveCandidates(position);
   if (!candidates.length)
     return Response.json({ error: "No valid placements available." }, { status: 400 });
   const apiKey = process.env.JEV_API_KEY;
@@ -80,7 +80,15 @@ async function handleEvent(request: Request): Promise<Response> {
       turn: value.turn,
       requestId: event.requestId,
       totalLines: event.totalLines,
-      position: { board: value.board, piece: value.piece, next: value.next },
+      position: {
+        board: value.board,
+        piece: value.piece,
+        next: value.next,
+        nextAfter: value.nextAfter,
+        hold: value.hold,
+        canHold: value.canHold,
+        activePose: value.activePose,
+      },
     });
     return Response.json({ saved: true });
   } catch {

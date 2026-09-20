@@ -20,9 +20,15 @@
           ></canvas>
         </div>
         <aside>
-          <div class="next">
-            <span>Next piece</span
-            ><canvas id="next" width="120" height="80" aria-label="Next piece"></canvas>
+          <div class="piece-previews">
+            <div class="next" id="hold-slot">
+              <span>Hold</span
+              ><canvas id="hold" width="120" height="80" aria-label="Hold: empty"></canvas>
+            </div>
+            <div class="next">
+              <span>Next</span
+              ><canvas id="next" width="120" height="80" aria-label="Next piece"></canvas>
+            </div>
           </div>
           <section class="obstacle-panel" aria-label="Place obstacles">
             <div class="obstacle-heading">Obstacle tickets <strong id="tickets">0</strong></div>
