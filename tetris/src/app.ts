@@ -354,7 +354,6 @@ async function play() {
         }
         requestId = data.requestId;
         replanning = false;
-        element("elapsed").textContent = `${((data.elapsed || 0) / 1000).toFixed(2)} s`;
         status.textContent = running
           ? "Moving to the chosen placement."
           : "Pausing after this piece is placed.";
@@ -435,7 +434,6 @@ element("reset").addEventListener("click", () => {
   activePose = spawnPose();
   totalLines = 0;
   totalPieces = 0;
-  element("elapsed").textContent = "—";
   status.textContent = configured
     ? "Ready to watch."
     : "Configure JEV_API_KEY in tetris/.env and restart the server.";

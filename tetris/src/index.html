@@ -10,9 +10,24 @@
     <main>
       <header><a href="/">Tetris × Jev</a></header>
       <section class="machine">
-        <div class="piece-slot" id="hold-slot">
-          <span>Hold</span>
-          <canvas id="hold" width="120" height="80" aria-label="Hold: empty"></canvas>
+        <div class="jev-side">
+          <div class="piece-slot" id="hold-slot">
+            <span>Hold</span>
+            <canvas id="hold" width="120" height="80" aria-label="Hold: empty"></canvas>
+          </div>
+          <section class="jev-stats" aria-labelledby="jev-stats-title">
+            <h2 id="jev-stats-title">Jev</h2>
+            <dl>
+              <div>
+                <dt>Lines cleared</dt>
+                <dd id="lines">0</dd>
+              </div>
+              <div>
+                <dt>Pieces placed</dt>
+                <dd id="pieces">0</dd>
+              </div>
+            </dl>
+          </section>
         </div>
         <div class="piece-slot" id="next-slot">
           <span>Next</span>
@@ -45,27 +60,13 @@
             <p id="obstacle-range"></p>
             <p id="obstacle-help" role="status"></p>
           </section>
-          <dl>
-            <div>
-              <dt>Lines cleared</dt>
-              <dd id="lines">0</dd>
-            </div>
-            <div>
-              <dt>Pieces placed</dt>
-              <dd id="pieces">0</dd>
-            </div>
-            <div>
-              <dt>Decision time</dt>
-              <dd id="elapsed">—</dd>
-            </div>
-          </dl>
-          <p id="status" role="status">Checking configuration…</p>
           <div class="controls">
             <button id="toggle" disabled>Start watching</button
             ><button id="reset" class="secondary">New game</button>
           </div>
         </aside>
       </section>
+      <p id="status" role="status">Checking configuration…</p>
     </main>
     <script type="module" src="./app.ts"></script>
   </body>

@@ -78,8 +78,19 @@ aside > p {
   font-size: 14px;
   align-self: start;
 }
-#hold-slot {
+.jev-side {
   grid-area: hold;
+  min-width: 0;
+}
+.jev-stats {
+  margin-top: 24px;
+  text-align: center;
+}
+.jev-stats h2 {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #c4d2f4;
 }
 #next-slot {
   grid-area: next;
@@ -90,27 +101,27 @@ aside > p {
   width: 78px;
   height: 52px;
 }
-dl {
+.jev-stats dl {
   margin: 0;
 }
-dl > div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin: 4px 0;
+.jev-stats dl > div {
+  margin-bottom: 20px;
 }
-dt {
-  font-size: 14px;
+.jev-stats dt {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #c4d2f4;
 }
-dd {
-  font-size: 25px;
+.jev-stats dd {
+  font-size: 24px;
   font-weight: 700;
-  margin: 0;
+  margin: 4px 0 0;
   font-variant-numeric: tabular-nums;
 }
 #status {
   min-height: 38px;
-  margin: 0;
+  margin: 24px 0 0;
+  color: #526080;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -177,16 +188,14 @@ a:focus-visible {
     max-width: 78px;
     height: auto;
   }
-  dl {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
+  .jev-stats {
+    margin-top: 16px;
   }
-  dl > div {
-    display: block;
+  .jev-stats dt {
+    font-size: 10px;
   }
-  dd {
-    margin-top: 6px;
+  .jev-stats dd {
+    font-size: 20px;
   }
   #status {
     min-height: 0;
