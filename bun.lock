@@ -4,6 +4,13 @@
   "workspaces": {
     "": {
       "name": "playground-jev",
+      "devDependencies": {
+        "@types/bun": "1.4.2",
+        "@typescript/native-preview": "7.0.0-dev.20260707.2",
+        "oxfmt": "0.68.0",
+        "oxlint": "1.83.0",
+        "oxlint-tsgolint": "7.0.2002",
+      },
     },
     "inquiries": {
       "name": "jev-inquiries",
