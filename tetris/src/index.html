@@ -10,10 +10,6 @@
     <main>
       <header>
         <a href="/">Tetris × Jev</a>
-        <div class="controls">
-          <button id="toggle" disabled>Start watching</button
-          ><button id="reset" class="secondary">New game</button>
-        </div>
       </header>
       <section class="machine">
         <div class="jev-side">
@@ -34,6 +30,9 @@
               </div>
             </dl>
           </section>
+          <div class="controls" id="game-controls" hidden>
+            <button id="toggle" disabled>Pause</button>
+          </div>
         </div>
         <div class="piece-slot" id="next-slot">
           <span>Next</span>
@@ -46,6 +45,12 @@
             height="600"
             aria-label="Tetris board showing Jev playing automatically"
           ></canvas>
+          <div id="board-overlay">
+            <div class="board-actions">
+              <button id="board-action" disabled>Start</button>
+              <button id="reset" class="secondary" hidden>Reset</button>
+            </div>
+          </div>
         </div>
         <aside>
           <section class="obstacle-panel" aria-label="Place obstacles">

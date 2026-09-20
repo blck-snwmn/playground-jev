@@ -1,5 +1,6 @@
 import {
   PIECES,
+  fits,
   cells,
   createBag,
   emptyBoard,
@@ -51,6 +52,7 @@ let position: Position = {
   hold: null,
   canHold: true,
 };
+let started = false;
 let running = false,
   configured = false,
   gameOver = false,
@@ -197,7 +199,7 @@ canvas.addEventListener("click", (event) => {
   finishObstacle();
 });
 async function waitForPlacement(version: number) {
-  while (placingObstacle && version === epoch)
+  while ((placingObstacle || (started && !running && !gameOver)) && version === epoch)
     await new Promise((resolve) => setTimeout(resolve, 16));
 }
 async function tick(version: number) {
@@ -257,7 +259,8 @@ function render(pose: Pose = activePose) {
   context.stroke();
   context.restore();
   const color = PIECES.indexOf(position.piece) + 1;
-  for (const [x, y] of cells(position.piece, pose)) paint(context, x, y, color, 30);
+  if (started && fits(position.board, position.piece, pose))
+    for (const [x, y] of cells(position.piece, pose)) paint(context, x, y, color, 30);
   if (placingObstacle && ghost && tickets[0]) {
     const valid = canPlaceObstacle(position.board, tickets[0], ghost, {
       piece: position.piece,
@@ -272,13 +275,13 @@ function render(pose: Pose = activePose) {
   }
   renderObstacle();
   preview.clearRect(0, 0, 120, 80);
-  paintPreview(preview, position.next);
+  if (started) paintPreview(preview, position.next);
   const holdCanvas = element<HTMLCanvasElement>("hold");
   const held = holdCanvas.getContext("2d")!;
   held.clearRect(0, 0, 120, 80);
-  if (position.hold) {
+  if (started && position.hold) {
     paintPreview(held, position.hold);
-  } else {
+  } else if (started) {
     held.fillStyle = "#c4d2f4";
     held.font = "18px sans-serif";
     held.save();
@@ -296,14 +299,15 @@ function render(pose: Pose = activePose) {
   element("pieces").textContent = String(totalPieces);
 }
 function buttons() {
-  toggle.textContent = gameOver
-    ? "Game over"
-    : running
-      ? "Pause"
-      : totalPieces
-        ? "Resume"
-        : "Start watching";
-  toggle.disabled = !configured || gameOver || placingObstacle;
+  toggle.textContent = "Pause";
+  toggle.disabled = !running || gameOver || placingObstacle;
+  element("game-controls").hidden = !started || !running || gameOver;
+  element("reset").hidden = !started || running || gameOver;
+  const overlay = element("board-overlay");
+  overlay.hidden = started && running && !gameOver;
+  const action = element<HTMLButtonElement>("board-action");
+  action.textContent = gameOver ? "New game" : started ? "Resume" : "Start";
+  action.disabled = !configured;
   renderObstacle();
 }
 async function recordEvent(type: "placed" | "game_over", requestId?: string) {
@@ -339,6 +343,7 @@ async function play() {
         if (!candidates.length) {
           gameOver = true;
           running = false;
+          render();
           buttons();
           await recordEvent("game_over");
           if (version !== epoch) return;
@@ -428,13 +433,23 @@ async function play() {
   }
 }
 toggle.addEventListener("click", () => {
-  if (gameOver || placingObstacle) return;
-  running = !running;
+  if (!running || gameOver || placingObstacle) return;
+  running = false;
+  status.textContent = "Paused.";
   buttons();
-  if (running) void play();
-  else status.textContent = "Pausing after this piece is placed.";
 });
-element("reset").addEventListener("click", () => {
+element("board-action").addEventListener("click", () => {
+  if (!configured || placingObstacle) return;
+  if (gameOver) resetGame();
+  started = true;
+  running = true;
+  render();
+  buttons();
+  void play();
+});
+element("reset").addEventListener("click", () => resetGame());
+function resetGame() {
+  started = false;
   epoch++;
   gameOver = false;
   gameId = crypto.randomUUID();
@@ -463,8 +478,9 @@ element("reset").addEventListener("click", () => {
     : "Configure JEV_API_KEY in tetris/.env and restart the server.";
   render();
   buttons();
-});
+}
 render();
+buttons();
 void fetch("/api/status")
   .then(async (response) => {
     if (!response.ok) throw new Error();
