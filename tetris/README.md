@@ -22,7 +22,6 @@ Open http://127.0.0.1:3001. Use `PORT` to change the port.
 ```sh
 bun run test
 bun run lint
-bun run typecheck
 bun run fmt:check
 ```
 
