@@ -23,7 +23,27 @@ Check all apps:
 
 ```sh
 bun run test
-bun run typecheck
 bun run lint
 bun run fmt:check
+```
+
+CI uses the exact Bun version in `package.json` and installs the workspace with
+`bun install --frozen-lockfile`. The root checks include every app's existing
+checks and formatting checks for the root configuration. Lint enables both
+`typeAware` and `typeCheck`, so it also reports TypeScript errors using each
+package's `tsconfig.json`; a separate typecheck command is unnecessary.
+
+```sh
+bun run build  # Build Inquiries (Othello/Tetris run directly from source)
+```
+
+CI runs the existing workspace tests without adding new tests. They mock Jev
+responses; CI does not call the live service or automate browser interactions.
+
+GitHub Actions security checks use the versions pinned in `aqua.yaml`:
+
+```sh
+aqua install
+pinact run --check
+zizmor --format github .
 ```
