@@ -187,7 +187,7 @@ a:focus-visible {
   width: 80px;
   height: 80px;
   display: block;
-  cursor: grab;
+  cursor: default;
   touch-action: none;
 }
 #obstacle[aria-disabled="true"] {
@@ -234,4 +234,8 @@ a:focus-visible {
 }
 .hold-used {
   opacity: 0.55;
+}
+
+#board.placing-obstacle {
+  cursor: crosshair;
 }

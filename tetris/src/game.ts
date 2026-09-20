@@ -93,7 +93,10 @@ export function lock(board: Board, piece: Piece, pose: Pose): { board: Board; li
   if (!fits(board, piece, pose)) throw new Error("Invalid placement");
   const result = board.map((row) => row.slice());
   for (const [x, y] of cells(piece, pose)) result[y][x] = PIECES.indexOf(piece) + 1;
-  const remaining = result.filter((row) => row.some((cell) => cell === 0));
+  return clearRows(result);
+}
+function clearRows(board: Board): { board: Board; lines: number } {
+  const remaining = board.filter((row) => row.some((cell) => cell === 0));
   const lines = HEIGHT - remaining.length;
   return {
     board: [...Array.from({ length: lines }, () => Array<number>(WIDTH).fill(0)), ...remaining],
@@ -300,6 +303,15 @@ export function canPlaceObstacle(
     !fits(board, obstacle.piece, { ...pose, y: pose.y + 1 })
   );
 }
+/** Preview support from fixed blocks; validate placement separately, including the active piece. */
+export function obstacleLanding(board: Board, obstacle: Obstacle, origin: Pose): Pose | undefined {
+  if (origin.rotation !== obstacle.rotation || !fits(board, obstacle.piece, origin))
+    return undefined;
+  const landing = { ...origin };
+  while (fits(board, obstacle.piece, { ...landing, y: landing.y + 1 })) landing.y++;
+  return landing;
+}
+
 /** Check only the revealed shape, including poses whose local origin is outside the board. */
 export function hasObstaclePlacement(
   board: Board,
@@ -317,7 +329,7 @@ export function hasObstaclePlacement(
         return true;
   return false;
 }
-/** Obstacles are fixed immediately; rows clear only when Jev locks its piece. */
+/** Clear completed rows immediately, without awarding Jev lines or tickets. */
 export function placeObstacle(
   board: Board,
   obstacle: Obstacle,
@@ -328,7 +340,7 @@ export function placeObstacle(
     throw new Error("Invalid obstacle placement");
   const result = board.map((row) => row.slice());
   for (const [x, y] of cells(obstacle.piece, pose)) result[y][x] = 8;
-  return result;
+  return clearRows(result).board;
 }
 export type Move = "left" | "right" | "down" | "rotate";
 export function pathMoves(path: Pose[]): Move[] {

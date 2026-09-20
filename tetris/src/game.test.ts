@@ -157,7 +157,7 @@ describe("obstacle game", () => {
     expect(stepMove(changed, active.piece, landed.pose, "down").landed).toBe(true);
     expect(lock(changed, active.piece, landed.pose).board[19][3]).toBe(8);
   });
-  test("obstacle completes a row without clearing until Jev locks", () => {
+  test("obstacle clears its completed row immediately without credit on the next lock", () => {
     const board = emptyBoard();
     board[19].fill(1);
     for (let x = 0; x < 4; x++) board[19][x] = 0;
@@ -168,8 +168,10 @@ describe("obstacle game", () => {
       { x: 0, y: 18, rotation: 0 },
       active,
     );
-    expect(changed[19].every(Boolean)).toBe(true);
-    expect(lock(changed, active.piece, active.pose).lines).toBe(1);
+    expect(changed).toEqual(emptyBoard());
+    expect(board[19].filter(Boolean)).toHaveLength(6);
+    expect(active.pose).toEqual({ x: 5, y: 17, rotation: 0 });
+    expect(lock(changed, active.piece, { ...active.pose, y: 18 }).lines).toBe(0);
   });
 });
 
@@ -261,4 +263,32 @@ test("discard is available when every supported position is above the limit", ()
   const active = { piece: "O" as const, pose: { x: 3, y: 0, rotation: 0 } };
   expect(hasObstaclePlacement(board, { piece: "I", rotation: 0 }, active)).toBe(false);
   expect(placements({ board, piece: active.piece, next: "I" }).length).toBeGreaterThan(0);
+});
+
+test("obstacle clears multiple rows and shifts the fixed stack before replanning", () => {
+  const board = emptyBoard();
+  for (const y of [18, 19]) {
+    board[y].fill(1);
+    board[y][1] = board[y][2] = 0;
+  }
+  board[12][8] = 3;
+  const active = { piece: "T" as const, pose: { x: 4, y: 5, rotation: 0 } };
+  const changed = placeObstacle(
+    board,
+    { piece: "O", rotation: 0 },
+    { x: 0, y: 18, rotation: 0 },
+    active,
+  );
+  expect(changed[14][8]).toBe(3);
+  expect(changed.flat().filter(Boolean)).toHaveLength(1);
+  expect(board[12][8]).toBe(3);
+  const candidates = placements({
+    board: changed,
+    piece: active.piece,
+    next: "I",
+    activePose: active.pose,
+  });
+  expect(candidates.length).toBeGreaterThan(0);
+  expect(candidates.every((p) => p.lines === 0)).toBe(true);
+  expect(candidates[0].path[0]).toEqual(active.pose);
 });

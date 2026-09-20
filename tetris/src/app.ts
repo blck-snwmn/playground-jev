@@ -11,6 +11,7 @@ import {
   pathMoves,
   stepMove,
   canPlaceObstacle,
+  obstacleLanding,
   hasObstaclePlacement,
   placeObstacle,
   randomObstacle,
@@ -63,7 +64,6 @@ let tickets: Obstacle[] = [];
 let placingObstacle = false;
 let obstacleBlocked = false;
 let replanning = false;
-let dragging = false;
 let cooldownRemaining = 0;
 let ghost: Pose | undefined;
 const obstacleCanvas = element<HTMLCanvasElement>("obstacle");
@@ -98,8 +98,9 @@ function renderObstacle() {
   element("obstacle-help").textContent = placingObstacle
     ? obstacleBlocked
       ? "No room in the allowed area. Discarding consumes 1 ticket."
-      : "Drag onto the floor or stack. Place the obstacle to resume."
+      : "Move over the board to preview. Click to place and resume."
     : "Use a ticket to stop time and reveal its shape.";
+  canvas.classList.toggle("placing-obstacle", placingObstacle && !obstacleBlocked);
   obstacleCanvas.setAttribute("aria-disabled", String(!placingObstacle || obstacleBlocked));
 }
 useTicket.addEventListener("click", () => {
@@ -118,7 +119,6 @@ function finishObstacle() {
   cooldownRemaining = PIECES_BETWEEN_TICKETS;
   placingObstacle = false;
   obstacleBlocked = false;
-  dragging = false;
   ghost = undefined;
   render();
   buttons();
@@ -128,7 +128,7 @@ discardTicket.addEventListener("click", () => {
   finishObstacle();
   toggle.focus();
 });
-function updateGhost(event: PointerEvent) {
+function updateGhost(event: MouseEvent) {
   const obstacle = tickets[0];
   if (!obstacle) return;
   const rect = canvas.getBoundingClientRect();
@@ -137,31 +137,28 @@ function updateGhost(event: PointerEvent) {
   const maxX = Math.max(...points.map(([x]) => x));
   const minY = Math.min(...points.map(([, y]) => y));
   const maxY = Math.max(...points.map(([, y]) => y));
-  ghost = {
+  const origin = {
     x: Math.floor(((event.clientX - rect.left) * 10) / rect.width) - Math.floor((minX + maxX) / 2),
     y: Math.floor(((event.clientY - rect.top) * 20) / rect.height) - Math.floor((minY + maxY) / 2),
     rotation: obstacle.rotation,
   };
+  const inside =
+    event.clientX >= rect.left &&
+    event.clientX < rect.left + rect.width &&
+    event.clientY >= rect.top &&
+    event.clientY < rect.top + rect.height;
+  ghost = inside ? (obstacleLanding(position.board, obstacle, origin) ?? origin) : undefined;
   render();
 }
-obstacleCanvas.addEventListener("pointerdown", (event) => {
-  if (!placingObstacle || obstacleBlocked || gameOver || !tickets.length) return;
-  event.preventDefault();
-  dragging = true;
-  obstacleCanvas.setPointerCapture(event.pointerId);
-  updateGhost(event);
+canvas.addEventListener("pointermove", (event) => {
+  if (placingObstacle) updateGhost(event);
 });
-canvas.addEventListener("pointerdown", (event) => {
-  if (!dragging) return;
-  event.preventDefault();
-  canvas.setPointerCapture(event.pointerId);
-  updateGhost(event);
+canvas.addEventListener("pointerleave", () => {
+  ghost = undefined;
+  render();
 });
-window.addEventListener("pointermove", (event) => {
-  if (dragging) updateGhost(event);
-});
-window.addEventListener("pointerup", (event) => {
-  if (!dragging || !tickets[0]) return;
+canvas.addEventListener("click", (event) => {
+  if (!placingObstacle || obstacleBlocked || gameOver || !tickets[0]) return;
   updateGhost(event);
   if (
     !ghost ||
@@ -221,7 +218,7 @@ function render(pose: Pose = activePose) {
   context.restore();
   const color = PIECES.indexOf(position.piece) + 1;
   for (const [x, y] of cells(position.piece, pose)) paint(context, x, y, color, 30);
-  if (dragging && ghost && tickets[0]) {
+  if (placingObstacle && ghost && tickets[0]) {
     const valid = canPlaceObstacle(position.board, tickets[0], ghost, {
       piece: position.piece,
       pose: activePose,
@@ -414,7 +411,6 @@ element("reset").addEventListener("click", () => {
   placingObstacle = false;
   obstacleBlocked = false;
   replanning = false;
-  dragging = false;
   cooldownRemaining = 0;
   ghost = undefined;
   tickets = [];
