@@ -20,6 +20,7 @@ import {
   OBSTACLE_ROWS,
   OBSTACLE_MIN_Y,
   type Obstacle,
+  type Piece,
   type Pose,
   type Position,
 } from "./game";
@@ -196,6 +197,21 @@ function paint(ctx: CanvasRenderingContext2D, x: number, y: number, color: numbe
     ctx.fillRect(x * size + 3, y * size + 3, size - 6, 3);
   }
 }
+function paintPreview(ctx: CanvasRenderingContext2D, piece: Piece) {
+  const points = cells(piece, spawnPose());
+  const minX = Math.min(...points.map(([x]) => x));
+  const maxX = Math.max(...points.map(([x]) => x));
+  const minY = Math.min(...points.map(([, y]) => y));
+  const maxY = Math.max(...points.map(([, y]) => y));
+  const size = 26;
+  ctx.save();
+  ctx.translate(
+    (ctx.canvas.width - (maxX - minX + 1) * size) / 2,
+    (ctx.canvas.height - (maxY - minY + 1) * size) / 2,
+  );
+  for (const [x, y] of points) paint(ctx, x - minX, y - minY, PIECES.indexOf(piece) + 1, size);
+  ctx.restore();
+}
 function render(pose: Pose = activePose) {
   context.clearRect(0, 0, 300, 600);
   position.board.forEach((row, y) =>
@@ -232,18 +248,20 @@ function render(pose: Pose = activePose) {
   }
   renderObstacle();
   preview.clearRect(0, 0, 120, 80);
-  for (const [x, y] of cells(position.next, { x: 0, y: 0, rotation: 0 }))
-    paint(preview, x, y, PIECES.indexOf(position.next) + 1, 26);
+  paintPreview(preview, position.next);
   const holdCanvas = element<HTMLCanvasElement>("hold");
   const held = holdCanvas.getContext("2d")!;
   held.clearRect(0, 0, 120, 80);
   if (position.hold) {
-    for (const [x, y] of cells(position.hold, { x: 0, y: 0, rotation: 0 }))
-      paint(held, x, y, PIECES.indexOf(position.hold) + 1, 26);
+    paintPreview(held, position.hold);
   } else {
     held.fillStyle = "#c4d2f4";
     held.font = "18px sans-serif";
-    held.fillText("Empty", 12, 40);
+    held.save();
+    held.textAlign = "center";
+    held.textBaseline = "middle";
+    held.fillText("Empty", holdCanvas.width / 2, holdCanvas.height / 2);
+    held.restore();
   }
   holdCanvas.setAttribute(
     "aria-label",
