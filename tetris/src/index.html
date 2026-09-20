@@ -82,7 +82,6 @@
               >
                 <span></span><span></span><span></span>
               </div>
-              <p id="obstacle-help" role="status"></p>
             </div>
             <div class="obstacle-actions">
               <div class="piece-slot" id="obstacle-slot">
@@ -99,7 +98,12 @@
               <div class="ticket-actions">
                 <div class="obstacle-heading">Tickets <strong id="tickets">0</strong></div>
                 <button id="use-ticket" disabled>Use ticket</button>
-                <button id="discard-ticket" hidden>Discard and resume</button>
+                <button id="discard-ticket" aria-describedby="discard-hint" hidden>
+                  Discard and resume
+                </button>
+                <span id="discard-hint" role="tooltip"
+                  >No room for this obstacle. Discarding uses 1 ticket and resumes play.</span
+                >
               </div>
             </div>
           </section>

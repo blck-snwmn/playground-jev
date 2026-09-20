@@ -305,14 +305,16 @@ a:focus-visible {
   gap: 12px;
 }
 .ticket-actions {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 92px;
+  height: 92px;
   gap: 8px;
 }
 .ticket-actions button {
-  min-height: 48px;
+  height: 48px;
+  flex-shrink: 0;
   padding: 8px;
   font-size: 12px;
 }
@@ -432,4 +434,32 @@ a:focus-visible {
 .board-actions #reset {
   width: 120px;
   flex: 0 1 120px;
+}
+
+#discard-ticket {
+  background: #ffda73;
+  color: #382b10;
+}
+#discard-ticket:hover {
+  background: #ffe49a;
+}
+#discard-hint {
+  position: absolute;
+  right: 0;
+  bottom: 56px;
+  z-index: 2;
+  width: 220px;
+  padding: 10px 12px;
+  border: 1px solid #ffda73;
+  border-radius: 8px;
+  background: #152854;
+  color: white;
+  font-size: 12px;
+  line-height: 1.5;
+  visibility: hidden;
+  pointer-events: none;
+}
+#discard-ticket:not([hidden]):hover + #discard-hint,
+#discard-ticket:not([hidden]):focus-visible + #discard-hint {
+  visibility: visible;
 }

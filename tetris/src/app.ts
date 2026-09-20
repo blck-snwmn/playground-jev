@@ -1,6 +1,5 @@
 import {
   PIECES,
-  fits,
   cells,
   createBag,
   emptyBoard,
@@ -112,12 +111,6 @@ function renderObstacle() {
   Array.from(cooldownMeter.children).forEach((step, index) =>
     step.classList.toggle("filled", index < completed),
   );
-  element("obstacle-help").textContent = placingObstacle
-    ? obstacleBlocked
-      ? "No room in the allowed area. Discarding consumes 1 ticket."
-      : "Move over the board to preview. Click to place and resume."
-    : "";
-  element("obstacle-help").hidden = !placingObstacle;
   canvas.classList.toggle("placing-obstacle", placingObstacle && !obstacleBlocked);
   obstacleCanvas.setAttribute("aria-disabled", String(!placingObstacle || obstacleBlocked));
 }
@@ -259,8 +252,7 @@ function render(pose: Pose = activePose) {
   context.stroke();
   context.restore();
   const color = PIECES.indexOf(position.piece) + 1;
-  if (started && fits(position.board, position.piece, pose))
-    for (const [x, y] of cells(position.piece, pose)) paint(context, x, y, color, 30);
+  if (started) for (const [x, y] of cells(position.piece, pose)) paint(context, x, y, color, 30);
   if (placingObstacle && ghost && tickets[0]) {
     const valid = canPlaceObstacle(position.board, tickets[0], ghost, {
       piece: position.piece,
