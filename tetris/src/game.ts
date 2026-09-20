@@ -57,6 +57,7 @@ export interface Position {
   board: Board;
   piece: Piece;
   next: Piece;
+  activePose?: Pose;
 }
 export interface Placement {
   id: string;
@@ -107,8 +108,8 @@ export function metrics(board: Board) {
   };
 }
 /** Reachable placements using left, right, down and clockwise rotation; no wall kicks or hold. */
-export function placements({ board, piece }: Position): Placement[] {
-  const start: Pose = { x: 3, y: 0, rotation: 0 };
+export function placements({ board, piece, activePose }: Position): Placement[] {
+  const start: Pose = activePose ?? { x: 3, y: 0, rotation: 0 };
   if (!fits(board, piece, start)) return [];
   const key = (p: Pose) => `${p.x},${p.y},${p.rotation}`;
   const queue = [{ pose: start, path: [start] }];
@@ -148,6 +149,18 @@ export function isPosition(value: unknown): value is Position {
   return (
     PIECES.includes(p.piece) &&
     PIECES.includes(p.next) &&
+    (p.activePose === undefined ||
+      (p.activePose !== null &&
+        typeof p.activePose === "object" &&
+        Number.isSafeInteger(p.activePose.x) &&
+        p.activePose.x >= -3 &&
+        p.activePose.x < WIDTH &&
+        Number.isSafeInteger(p.activePose.y) &&
+        p.activePose.y >= -3 &&
+        p.activePose.y < HEIGHT &&
+        Number.isInteger(p.activePose.rotation) &&
+        p.activePose.rotation >= 0 &&
+        p.activePose.rotation < 4)) &&
     Array.isArray(p.board) &&
     p.board.length === HEIGHT &&
     p.board.every(
@@ -172,6 +185,8 @@ export function createBag(random = Math.random): () => Piece {
   };
 }
 
+export const OBSTACLE_ROWS = 14;
+export const OBSTACLE_MIN_Y = HEIGHT - OBSTACLE_ROWS;
 export const LINES_PER_TICKET = 4;
 export const PIECES_BETWEEN_TICKETS = 3;
 export interface Obstacle {
@@ -204,6 +219,7 @@ export function canPlaceObstacle(
   active: { piece: Piece; pose: Pose },
 ): boolean {
   if (pose.rotation !== obstacle.rotation || !fits(board, obstacle.piece, pose)) return false;
+  if (cells(obstacle.piece, pose).some(([, y]) => y < OBSTACLE_MIN_Y)) return false;
   const occupied = new Set(cells(active.piece, active.pose).map(([x, y]) => `${x},${y}`));
   return (
     !cells(obstacle.piece, pose).some(([x, y]) => occupied.has(`${x},${y}`)) &&

@@ -176,7 +176,7 @@ describe("obstacle game", () => {
 describe("obstacles with no placement", () => {
   test("a playable board can have no room for the revealed orientation", () => {
     const board = emptyBoard();
-    for (let y = 2; y < 20; y++) {
+    for (let y = 8; y < 20; y++) {
       board[y].fill(1);
       board[y][y % 10] = 0;
     }
@@ -190,14 +190,14 @@ describe("obstacles with no placement", () => {
     for (let y = 0; y < 20; y++) {
       board[y].fill(1);
       board[y][y % 10] = 0;
-      if (y < 4) board[y][4] = board[y][5] = 0;
+      if (y >= 6 && y < 10) board[y][4] = board[y][5] = 0;
     }
     const obstacle = { piece: "O" as const, rotation: 0 };
     expect(
-      hasObstaclePlacement(board, obstacle, { piece: "O", pose: { x: 3, y: 2, rotation: 0 } }),
+      hasObstaclePlacement(board, obstacle, { piece: "O", pose: { x: 3, y: 8, rotation: 0 } }),
     ).toBe(false);
     expect(
-      hasObstaclePlacement(board, obstacle, { piece: "O", pose: { x: 3, y: 0, rotation: 0 } }),
+      hasObstaclePlacement(board, obstacle, { piece: "O", pose: { x: 3, y: 6, rotation: 0 } }),
     ).toBe(true);
   });
   test("a low edge slot remains usable beside a high stack", () => {
@@ -210,4 +210,55 @@ describe("obstacles with no placement", () => {
     board[0][4] = board[0][5] = board[1][4] = board[1][5] = 0;
     expect(hasObstaclePlacement(board, { piece: "I", rotation: 1 }, active)).toBe(true);
   });
+});
+
+test("replanning starts at the current pose without rising past new obstacles", () => {
+  const board = emptyBoard();
+  for (let y = 0; y < 20; y++) board[y][5] = 8;
+  const activePose = { x: 0, y: 10, rotation: 1 };
+  const position = { board, piece: "I" as const, next: "O" as const, activePose };
+  const options = placements(position);
+  expect(options.length).toBeGreaterThan(0);
+  for (const option of options) {
+    expect(option.path[0]).toEqual(activePose);
+    for (const pose of option.path) {
+      expect(pose.y).toBeGreaterThanOrEqual(activePose.y);
+      expect(fits(board, position.piece, pose)).toBe(true);
+      expect(cells(position.piece, pose).every(([x]) => x < 5)).toBe(true);
+    }
+  }
+  expect(buildJevRequest(position, "jev-latest", options).state.activePose).toEqual(activePose);
+});
+
+test("validates active poses before searching", () => {
+  const position = { board: emptyBoard(), piece: "I", next: "O" };
+  expect(isPosition({ ...position, activePose: { x: -2, y: 10, rotation: 1 } })).toBe(true);
+  for (const activePose of [
+    null,
+    {},
+    { x: 0, y: 0, rotation: 1000000 },
+    { x: 0, y: 0.5, rotation: 0 },
+    { x: 0, y: 20, rotation: 0 },
+  ])
+    expect(isPosition({ ...position, activePose })).toBe(false);
+});
+
+test("all obstacle cells must fit in the bottom fourteen rows", () => {
+  const board = emptyBoard();
+  const obstacle = { piece: "I" as const, rotation: 1 };
+  const active = { piece: "O" as const, pose: { x: 3, y: 0, rotation: 0 } };
+  board[10][2] = 1;
+  expect(canPlaceObstacle(board, obstacle, { x: 0, y: 6, rotation: 1 }, active)).toBe(true);
+  board[10][2] = 0;
+  board[9][2] = 1;
+  expect(canPlaceObstacle(board, obstacle, { x: 0, y: 5, rotation: 1 }, active)).toBe(false);
+  expect(() => placeObstacle(board, obstacle, { x: 0, y: 5, rotation: 1 }, active)).toThrow();
+});
+
+test("discard is available when every supported position is above the limit", () => {
+  const board = emptyBoard();
+  for (let y = 6; y < 20; y++) board[y].fill(1);
+  const active = { piece: "O" as const, pose: { x: 3, y: 0, rotation: 0 } };
+  expect(hasObstaclePlacement(board, { piece: "I", rotation: 0 }, active)).toBe(false);
+  expect(placements({ board, piece: active.piece, next: "I" }).length).toBeGreaterThan(0);
 });

@@ -13,6 +13,8 @@ import {
   randomObstacle,
   LINES_PER_TICKET,
   PIECES_BETWEEN_TICKETS,
+  OBSTACLE_ROWS,
+  OBSTACLE_MIN_Y,
   type Obstacle,
   type Pose,
   type Position,
@@ -51,6 +53,7 @@ let activePose = spawnPose();
 let tickets: Obstacle[] = [];
 let placingObstacle = false;
 let obstacleBlocked = false;
+let replanning = false;
 let dragging = false;
 let cooldownRemaining = 0;
 let ghost: Pose | undefined;
@@ -66,6 +69,7 @@ function renderObstacle() {
   if (placingObstacle && obstacle)
     for (const [x, y] of cells(obstacle.piece, { x: 0, y: 0, rotation: obstacle.rotation }))
       paint(obstacleContext, x, y, 8, 28);
+  element("obstacle-range").textContent = `Obstacles: bottom ${OBSTACLE_ROWS} rows only`;
   element("tickets").textContent = String(tickets.length);
   element("ticket-progress").textContent =
     `${totalLines % LINES_PER_TICKET} / ${LINES_PER_TICKET} lines toward next ticket`;
@@ -84,7 +88,7 @@ function renderObstacle() {
           : "Earn a ticket by clearing lines";
   element("obstacle-help").textContent = placingObstacle
     ? obstacleBlocked
-      ? "No room for this obstacle. Discarding consumes 1 ticket."
+      ? "No room in the allowed area. Discarding consumes 1 ticket."
       : "Drag onto the floor or stack. Place the obstacle to resume."
     : "Use a ticket to stop time and reveal its shape.";
   obstacleCanvas.setAttribute("aria-disabled", String(!placingObstacle || obstacleBlocked));
@@ -165,6 +169,9 @@ window.addEventListener("pointerup", (event) => {
       pose: activePose,
     }),
   };
+  replanning = true;
+  controller?.abort();
+  status.textContent = "Jev is reconsidering after the obstacle…";
   finishObstacle();
 });
 async function waitForPlacement(version: number) {
@@ -185,7 +192,24 @@ function paint(ctx: CanvasRenderingContext2D, x: number, y: number, color: numbe
 }
 function render(pose: Pose = activePose) {
   context.clearRect(0, 0, 300, 600);
-  position.board.forEach((row, y) => row.forEach((c, x) => paint(context, x, y, c, 30)));
+  position.board.forEach((row, y) =>
+    row.forEach((c, x) => {
+      paint(context, x, y, c, 30);
+      if (!c && y < OBSTACLE_MIN_Y) {
+        context.fillStyle = "#303552";
+        context.fillRect(x * 30 + 1, y * 30 + 1, 28, 28);
+      }
+    }),
+  );
+  context.save();
+  context.strokeStyle = "#a5b8dd";
+  context.lineWidth = 2;
+  context.setLineDash([6, 4]);
+  context.beginPath();
+  context.moveTo(0, OBSTACLE_MIN_Y * 30);
+  context.lineTo(300, OBSTACLE_MIN_Y * 30);
+  context.stroke();
+  context.restore();
   const color = PIECES.indexOf(position.piece) + 1;
   for (const [x, y] of cells(position.piece, pose)) paint(context, x, y, color, 30);
   if (dragging && ghost && tickets[0]) {
@@ -241,54 +265,69 @@ async function play() {
     while (running && version === epoch) {
       await waitForPlacement(version);
       if (version !== epoch || !running) return;
-      const candidates = placements(position);
-      if (!candidates.length) {
-        gameOver = true;
-        running = false;
-        buttons();
-        await recordEvent("game_over");
+      let requestId: string | undefined;
+      decisions: while (true) {
+        await waitForPlacement(version);
         if (version !== epoch) return;
-        status.textContent = "Game over. Select New game to start again.";
+        const snapshot = { ...position, activePose: { ...activePose } };
+        const candidates = placements(snapshot);
+        if (!candidates.length) {
+          gameOver = true;
+          running = false;
+          buttons();
+          await recordEvent("game_over");
+          if (version !== epoch) return;
+          status.textContent = "Game over. Select New game to start again.";
+          return;
+        }
+        status.textContent = replanning
+          ? "Jev is reconsidering after the obstacle…"
+          : "Jev is choosing a placement…";
+        controller = new AbortController();
+        let response: Response;
+        let data: { choice?: string; elapsed?: number; error?: string; requestId?: string };
+        try {
+          response = await fetch("/api/jev", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...snapshot, gameId, turn: totalPieces + 1 }),
+            signal: controller.signal,
+          });
+          data = (await response.json()) as typeof data;
+        } catch (error) {
+          if (version !== epoch) return;
+          if (position.board !== snapshot.board) continue decisions;
+          throw error;
+        }
+        if (version !== epoch) return;
+        if (position.board !== snapshot.board) continue decisions;
+        if (!response.ok) throw new Error(data.error || "Could not get a decision from Jev.");
+        const choice = candidates.find((p) => p.id === data.choice);
+        if (!choice) throw new Error("Could not read the placement. Resume to retry.");
+        requestId = data.requestId;
+        replanning = false;
+        element("elapsed").textContent = `${((data.elapsed || 0) / 1000).toFixed(2)} s`;
+        status.textContent = running
+          ? "Moving to the chosen placement."
+          : "Pausing after this piece is placed.";
+        // Never execute an operation from a decision made before the latest obstacle.
+        const moves = pathMoves(choice.path);
+        let moveIndex = 0;
+        while (true) {
+          await tick(version);
+          if (version !== epoch) return;
+          if (position.board !== snapshot.board) continue decisions;
+          const step = stepMove(
+            position.board,
+            position.piece,
+            activePose,
+            moves[moveIndex++] ?? "down",
+          );
+          activePose = step.pose;
+          render();
+          if (step.landed) break;
+        }
         break;
-      }
-      status.textContent = "Jev is choosing a placement…";
-      controller = new AbortController();
-      const response = await fetch("/api/jev", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...position, gameId, turn: totalPieces + 1 }),
-        signal: controller.signal,
-      });
-      const data = (await response.json()) as {
-        choice?: string;
-        elapsed?: number;
-        error?: string;
-        requestId?: string;
-      };
-      if (version !== epoch) return;
-      if (!response.ok) throw new Error(data.error || "Could not get a decision from Jev.");
-      const choice = candidates.find((p) => p.id === data.choice);
-      if (!choice) throw new Error("Could not read the placement. Resume to retry.");
-      element("elapsed").textContent = `${((data.elapsed || 0) / 1000).toFixed(2)} s`;
-      status.textContent = running
-        ? "Moving to the chosen placement."
-        : "Pausing after this piece is placed.";
-      // Keep the original decision, but apply relative operations to the live board.
-      // A rejected operation must never teleport the piece to a later path coordinate.
-      const moves = pathMoves(choice.path);
-      let moveIndex = 0;
-      while (true) {
-        await tick(version);
-        if (version !== epoch) return;
-        const step = stepMove(
-          position.board,
-          position.piece,
-          activePose,
-          moves[moveIndex++] ?? "down",
-        );
-        activePose = step.pose;
-        render();
-        if (step.landed) break;
       }
       const outcome = lock(position.board, position.piece, activePose);
       const earned =
@@ -301,7 +340,7 @@ async function play() {
       position = { board: outcome.board, piece: position.next, next: drawPiece() };
       activePose = spawnPose();
       render();
-      await recordEvent("placed", data.requestId);
+      await recordEvent("placed", requestId);
       if (version !== epoch) return;
       if (!running) status.textContent = "Paused.";
     }
@@ -334,6 +373,7 @@ element("reset").addEventListener("click", () => {
   position = { board: emptyBoard(), piece: drawPiece(), next: drawPiece() };
   placingObstacle = false;
   obstacleBlocked = false;
+  replanning = false;
   dragging = false;
   cooldownRemaining = 0;
   ghost = undefined;

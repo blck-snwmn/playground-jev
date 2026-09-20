@@ -55,3 +55,32 @@ test("does not log a decision when Jev fails", async () => {
   expect(response.status).toBe(502);
   expect(logSpy).not.toHaveBeenCalled();
 });
+
+test("uses and logs the current pose when choosing a replacement path", async () => {
+  process.env.JEV_API_KEY = "test-key";
+  fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(
+    Response.json({ answers: { move: { choice: "p0" } } }),
+  );
+  logSpy = spyOn(logs, "appendLog").mockResolvedValue(undefined);
+  const board = emptyBoard();
+  board[0].fill(8); // Spawn is blocked, but the falling piece below it can still move.
+  const activePose = { x: 0, y: 10, rotation: 1 };
+  const response = await handleMove(
+    new Request("http://localhost:3001/api/jev", {
+      method: "POST",
+      headers: { origin: "http://localhost:3001", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        board,
+        piece: "I",
+        next: "O",
+        activePose,
+        gameId: crypto.randomUUID(),
+        turn: 2,
+      }),
+    }),
+  );
+  expect(response.status).toBe(200);
+  const logged = logSpy.mock.calls[0][1];
+  expect(logged.position).toMatchObject({ activePose });
+  expect(logged.request).toMatchObject({ state: { activePose } });
+});

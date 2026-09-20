@@ -9,6 +9,7 @@ export function buildJevRequest(position: Position, model: string, candidates: P
       legend: "Rows run top to bottom. # occupied, . empty.",
       piece: position.piece,
       next: position.next,
+      activePose: position.activePose ?? { x: 3, y: 0, rotation: 0 },
       currentMetrics,
       metricGuide:
         "holes counts empty cells with an occupied cell above in the same column; height is maximum column height; bumpiness is the sum of adjacent column height differences. Candidate metrics are measured after placement and line clears. delta is candidate minus current: positive means an increase. lines counts rows cleared by this move. nextCanSpawn indicates whether the next piece fits at its spawn position after this placement and line clears, assuming no further obstacles are added; false means immediate game over on the next turn.",
