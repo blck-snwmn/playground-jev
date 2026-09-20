@@ -154,7 +154,7 @@ export function isPosition(value: unknown): value is Position {
       (row) =>
         Array.isArray(row) &&
         row.length === WIDTH &&
-        row.every((cell) => Number.isInteger(cell) && cell >= 0 && cell <= 7),
+        row.every((cell) => Number.isInteger(cell) && cell >= 0 && cell <= 8),
     )
   );
 }
@@ -170,4 +170,91 @@ export function createBag(random = Math.random): () => Piece {
     }
     return bag.pop()!;
   };
+}
+
+export const LINES_PER_TICKET = 4;
+export const PIECES_BETWEEN_TICKETS = 3;
+export interface Obstacle {
+  piece: Piece;
+  rotation: number;
+}
+export function randomObstacle(random = Math.random): Obstacle {
+  const piece = PIECES[Math.floor(random() * PIECES.length)];
+  const seen = new Set<string>();
+  const rotations: number[] = [];
+  for (let rotation = 0; rotation < 4; rotation++) {
+    const points = cells(piece, { x: 0, y: 0, rotation });
+    const minX = Math.min(...points.map(([x]) => x));
+    const minY = Math.min(...points.map(([, y]) => y));
+    const signature = points
+      .map(([x, y]) => `${x - minX},${y - minY}`)
+      .sort()
+      .join(";");
+    if (!seen.has(signature)) {
+      seen.add(signature);
+      rotations.push(rotation);
+    }
+  }
+  return { piece, rotation: rotations[Math.floor(random() * rotations.length)] };
+}
+export function canPlaceObstacle(
+  board: Board,
+  obstacle: Obstacle,
+  pose: Pose,
+  active: { piece: Piece; pose: Pose },
+): boolean {
+  if (pose.rotation !== obstacle.rotation || !fits(board, obstacle.piece, pose)) return false;
+  const occupied = new Set(cells(active.piece, active.pose).map(([x, y]) => `${x},${y}`));
+  return (
+    !cells(obstacle.piece, pose).some(([x, y]) => occupied.has(`${x},${y}`)) &&
+    !fits(board, obstacle.piece, { ...pose, y: pose.y + 1 })
+  );
+}
+/** Check only the revealed shape, including poses whose local origin is outside the board. */
+export function hasObstaclePlacement(
+  board: Board,
+  obstacle: Obstacle,
+  active: { piece: Piece; pose: Pose },
+): boolean {
+  const points = cells(obstacle.piece, { x: 0, y: 0, rotation: obstacle.rotation });
+  const minX = Math.min(...points.map(([x]) => x));
+  const maxX = Math.max(...points.map(([x]) => x));
+  const minY = Math.min(...points.map(([, y]) => y));
+  const maxY = Math.max(...points.map(([, y]) => y));
+  for (let y = -minY; y < HEIGHT - maxY; y++)
+    for (let x = -minX; x < WIDTH - maxX; x++)
+      if (canPlaceObstacle(board, obstacle, { x, y, rotation: obstacle.rotation }, active))
+        return true;
+  return false;
+}
+/** Obstacles are fixed immediately; rows clear only when Jev locks its piece. */
+export function placeObstacle(
+  board: Board,
+  obstacle: Obstacle,
+  pose: Pose,
+  active: { piece: Piece; pose: Pose },
+): Board {
+  if (!canPlaceObstacle(board, obstacle, pose, active))
+    throw new Error("Invalid obstacle placement");
+  const result = board.map((row) => row.slice());
+  for (const [x, y] of cells(obstacle.piece, pose)) result[y][x] = 8;
+  return result;
+}
+export type Move = "left" | "right" | "down" | "rotate";
+export function pathMoves(path: Pose[]): Move[] {
+  return path.slice(1).map((pose, i) => {
+    const previous = path[i];
+    if (pose.x !== previous.x) return pose.x < previous.x ? "left" : "right";
+    if (pose.y !== previous.y) return "down";
+    return "rotate";
+  });
+}
+export function stepMove(board: Board, piece: Piece, pose: Pose, move: Move) {
+  const next = { ...pose };
+  if (move === "left") next.x--;
+  if (move === "right") next.x++;
+  if (move === "down") next.y++;
+  if (move === "rotate") next.rotation = piece === "O" ? 0 : (pose.rotation + 1) % 4;
+  const allowed = fits(board, piece, next);
+  return { pose: allowed ? next : pose, landed: !allowed && move === "down" };
 }
