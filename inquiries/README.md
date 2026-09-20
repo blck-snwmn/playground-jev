@@ -19,7 +19,6 @@ Open http://127.0.0.1:4325. Use `PORT` to change the port.
 
 ```sh
 bun run test
-bun run typecheck
 bun run lint
 bun run fmt:check
 bun run build

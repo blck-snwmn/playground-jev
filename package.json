@@ -8,7 +8,6 @@
   ],
   "scripts": {
     "test": "bun run --workspaces test",
-    "typecheck": "tsgo --noEmit && bun run --workspaces typecheck",
     "lint": "oxlint --deny-warnings scripts && bun run --workspaces lint",
     "fmt:check": "oxfmt --check scripts package.json tsconfig.json .oxlintrc.json README.md .github aqua.yaml && bun run --workspaces fmt:check",
     "build": "bun run --filter jev-inquiries build",
@@ -16,7 +15,6 @@
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
-    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "oxfmt": "0.68.0",
     "oxlint": "1.83.0",
     "oxlint-tsgolint": "7.0.2002"

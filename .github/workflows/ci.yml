@@ -21,10 +21,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Check formatting
         run: bun run fmt:check
-      - name: Lint
+      - name: Lint and typecheck
         run: bun run lint
-      - name: Typecheck
-        run: bun run typecheck
       - name: Test all workspaces
         run: bun run test
       - name: Build Inquiries for production
