@@ -1,4 +1,23 @@
-import { PIECES, cells, createBag, emptyBoard, placements, type Pose, type Position } from "./game";
+import {
+  PIECES,
+  cells,
+  createBag,
+  emptyBoard,
+  placements,
+  lock,
+  pathMoves,
+  stepMove,
+  canPlaceObstacle,
+  hasObstaclePlacement,
+  placeObstacle,
+  randomObstacle,
+  LINES_PER_TICKET,
+  PIECES_BETWEEN_TICKETS,
+  type Obstacle,
+  type Pose,
+  type Position,
+} from "./game";
+const MOVE_INTERVAL_MS = 50;
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const canvas = element<HTMLCanvasElement>("board");
 const context = canvas.getContext("2d")!;
@@ -14,6 +33,7 @@ const colors = [
   "#ff8f9c",
   "#7ea4ff",
   "#ffb47b",
+  "#b9becd",
 ];
 let gameId = crypto.randomUUID();
 let drawPiece = createBag();
@@ -26,6 +46,135 @@ let running = false,
   totalLines = 0,
   totalPieces = 0;
 let controller: AbortController | undefined;
+const spawnPose = (): Pose => ({ x: 3, y: 0, rotation: 0 });
+let activePose = spawnPose();
+let tickets: Obstacle[] = [];
+let placingObstacle = false;
+let obstacleBlocked = false;
+let dragging = false;
+let cooldownRemaining = 0;
+let ghost: Pose | undefined;
+const obstacleCanvas = element<HTMLCanvasElement>("obstacle");
+const obstacleContext = obstacleCanvas.getContext("2d")!;
+const useTicket = element<HTMLButtonElement>("use-ticket");
+const discardTicket = element<HTMLButtonElement>("discard-ticket");
+function renderObstacle() {
+  obstacleContext.clearRect(0, 0, 120, 120);
+  const obstacle = tickets[0];
+  obstacleCanvas.hidden = !placingObstacle;
+  element("obstacle-concealed").hidden = placingObstacle;
+  if (placingObstacle && obstacle)
+    for (const [x, y] of cells(obstacle.piece, { x: 0, y: 0, rotation: obstacle.rotation }))
+      paint(obstacleContext, x, y, 8, 28);
+  element("tickets").textContent = String(tickets.length);
+  element("ticket-progress").textContent =
+    `${totalLines % LINES_PER_TICKET} / ${LINES_PER_TICKET} lines toward next ticket`;
+  useTicket.disabled =
+    !running || gameOver || placingObstacle || !tickets.length || cooldownRemaining > 0;
+  useTicket.hidden = placingObstacle && obstacleBlocked;
+  discardTicket.hidden = !placingObstacle || !obstacleBlocked;
+  useTicket.textContent = placingObstacle ? "Placing obstacle…" : "Use ticket";
+  element("ticket-cooldown").textContent =
+    cooldownRemaining > 0
+      ? `Next ticket in ${cooldownRemaining} Jev ${cooldownRemaining === 1 ? "piece" : "pieces"}`
+      : placingObstacle
+        ? "Time stopped"
+        : tickets.length
+          ? "Ticket ready"
+          : "Earn a ticket by clearing lines";
+  element("obstacle-help").textContent = placingObstacle
+    ? obstacleBlocked
+      ? "No room for this obstacle. Discarding consumes 1 ticket."
+      : "Drag onto the floor or stack. Place the obstacle to resume."
+    : "Use a ticket to stop time and reveal its shape.";
+  obstacleCanvas.setAttribute("aria-disabled", String(!placingObstacle || obstacleBlocked));
+}
+useTicket.addEventListener("click", () => {
+  if (!running || gameOver || placingObstacle || !tickets.length || cooldownRemaining > 0) return;
+  placingObstacle = true;
+  obstacleBlocked = !hasObstaclePlacement(position.board, tickets[0], {
+    piece: position.piece,
+    pose: activePose,
+  });
+  ghost = undefined;
+  render();
+  buttons();
+});
+function finishObstacle() {
+  tickets.shift();
+  cooldownRemaining = PIECES_BETWEEN_TICKETS;
+  placingObstacle = false;
+  obstacleBlocked = false;
+  dragging = false;
+  ghost = undefined;
+  render();
+  buttons();
+}
+discardTicket.addEventListener("click", () => {
+  if (!placingObstacle || !obstacleBlocked || !tickets.length) return;
+  finishObstacle();
+  toggle.focus();
+});
+function updateGhost(event: PointerEvent) {
+  const obstacle = tickets[0];
+  if (!obstacle) return;
+  const rect = canvas.getBoundingClientRect();
+  const points = cells(obstacle.piece, { x: 0, y: 0, rotation: obstacle.rotation });
+  const minX = Math.min(...points.map(([x]) => x));
+  const maxX = Math.max(...points.map(([x]) => x));
+  const minY = Math.min(...points.map(([, y]) => y));
+  const maxY = Math.max(...points.map(([, y]) => y));
+  ghost = {
+    x: Math.floor(((event.clientX - rect.left) * 10) / rect.width) - Math.floor((minX + maxX) / 2),
+    y: Math.floor(((event.clientY - rect.top) * 20) / rect.height) - Math.floor((minY + maxY) / 2),
+    rotation: obstacle.rotation,
+  };
+  render();
+}
+obstacleCanvas.addEventListener("pointerdown", (event) => {
+  if (!placingObstacle || obstacleBlocked || gameOver || !tickets.length) return;
+  event.preventDefault();
+  dragging = true;
+  obstacleCanvas.setPointerCapture(event.pointerId);
+  updateGhost(event);
+});
+canvas.addEventListener("pointerdown", (event) => {
+  if (!dragging) return;
+  event.preventDefault();
+  canvas.setPointerCapture(event.pointerId);
+  updateGhost(event);
+});
+window.addEventListener("pointermove", (event) => {
+  if (dragging) updateGhost(event);
+});
+window.addEventListener("pointerup", (event) => {
+  if (!dragging || !tickets[0]) return;
+  updateGhost(event);
+  if (
+    !ghost ||
+    !canPlaceObstacle(position.board, tickets[0], ghost, {
+      piece: position.piece,
+      pose: activePose,
+    })
+  )
+    return;
+  position = {
+    ...position,
+    board: placeObstacle(position.board, tickets[0], ghost, {
+      piece: position.piece,
+      pose: activePose,
+    }),
+  };
+  finishObstacle();
+});
+async function waitForPlacement(version: number) {
+  while (placingObstacle && version === epoch)
+    await new Promise((resolve) => setTimeout(resolve, 16));
+}
+async function tick(version: number) {
+  await new Promise((resolve) => setTimeout(resolve, MOVE_INTERVAL_MS));
+  await waitForPlacement(version);
+}
 function paint(ctx: CanvasRenderingContext2D, x: number, y: number, color: number, size: number) {
   ctx.fillStyle = colors[color];
   ctx.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
@@ -34,11 +183,24 @@ function paint(ctx: CanvasRenderingContext2D, x: number, y: number, color: numbe
     ctx.fillRect(x * size + 3, y * size + 3, size - 6, 3);
   }
 }
-function render(pose: Pose = { x: 3, y: 0, rotation: 0 }) {
+function render(pose: Pose = activePose) {
   context.clearRect(0, 0, 300, 600);
   position.board.forEach((row, y) => row.forEach((c, x) => paint(context, x, y, c, 30)));
   const color = PIECES.indexOf(position.piece) + 1;
   for (const [x, y] of cells(position.piece, pose)) paint(context, x, y, color, 30);
+  if (dragging && ghost && tickets[0]) {
+    const valid = canPlaceObstacle(position.board, tickets[0], ghost, {
+      piece: position.piece,
+      pose: activePose,
+    });
+    context.save();
+    context.globalAlpha = 0.65;
+    context.fillStyle = valid ? "#a4ffcb" : "#ff687f";
+    for (const [x, y] of cells(tickets[0].piece, ghost))
+      context.fillRect(x * 30 + 1, y * 30 + 1, 28, 28);
+    context.restore();
+  }
+  renderObstacle();
   preview.clearRect(0, 0, 120, 80);
   for (const [x, y] of cells(position.next, { x: 0, y: 0, rotation: 0 }))
     paint(preview, x, y, PIECES.indexOf(position.next) + 1, 26);
@@ -53,7 +215,8 @@ function buttons() {
       : totalPieces
         ? "Resume"
         : "Start watching";
-  toggle.disabled = !configured || gameOver;
+  toggle.disabled = !configured || gameOver || placingObstacle;
+  renderObstacle();
 }
 async function recordEvent(type: "placed" | "game_over", requestId?: string) {
   const response = await fetch("/api/log", {
@@ -76,6 +239,8 @@ async function play() {
   const version = epoch;
   try {
     while (running && version === epoch) {
+      await waitForPlacement(version);
+      if (version !== epoch || !running) return;
       const candidates = placements(position);
       if (!candidates.length) {
         gameOver = true;
@@ -108,22 +273,33 @@ async function play() {
       status.textContent = running
         ? "Moving to the chosen placement."
         : "Pausing after this piece is placed.";
-      for (const pose of choice.path) {
+      // Keep the original decision, but apply relative operations to the live board.
+      // A rejected operation must never teleport the piece to a later path coordinate.
+      const moves = pathMoves(choice.path);
+      let moveIndex = 0;
+      while (true) {
+        await tick(version);
         if (version !== epoch) return;
-        render(pose);
-        await new Promise((resolve) =>
-          setTimeout(
-            resolve,
-            matchMedia("(prefers-reduced-motion: reduce)").matches
-              ? 0
-              : Number(element<HTMLSelectElement>("speed").value),
-          ),
+        const step = stepMove(
+          position.board,
+          position.piece,
+          activePose,
+          moves[moveIndex++] ?? "down",
         );
+        activePose = step.pose;
+        render();
+        if (step.landed) break;
       }
-      if (version !== epoch) return;
-      totalLines += choice.lines;
+      const outcome = lock(position.board, position.piece, activePose);
+      const earned =
+        Math.floor((totalLines + outcome.lines) / LINES_PER_TICKET) -
+        Math.floor(totalLines / LINES_PER_TICKET);
+      for (let i = 0; i < earned; i++) tickets.push(randomObstacle());
+      totalLines += outcome.lines;
       totalPieces++;
-      position = { board: choice.board, piece: position.next, next: drawPiece() };
+      cooldownRemaining = Math.max(0, cooldownRemaining - 1);
+      position = { board: outcome.board, piece: position.next, next: drawPiece() };
+      activePose = spawnPose();
       render();
       await recordEvent("placed", data.requestId);
       if (version !== epoch) return;
@@ -142,7 +318,7 @@ async function play() {
   }
 }
 toggle.addEventListener("click", () => {
-  if (gameOver) return;
+  if (gameOver || placingObstacle) return;
   running = !running;
   buttons();
   if (running) void play();
@@ -156,6 +332,13 @@ element("reset").addEventListener("click", () => {
   controller?.abort();
   drawPiece = createBag();
   position = { board: emptyBoard(), piece: drawPiece(), next: drawPiece() };
+  placingObstacle = false;
+  obstacleBlocked = false;
+  dragging = false;
+  cooldownRemaining = 0;
+  ghost = undefined;
+  tickets = [];
+  activePose = spawnPose();
   totalLines = 0;
   totalPieces = 0;
   element("elapsed").textContent = "—";

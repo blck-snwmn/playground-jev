@@ -55,6 +55,8 @@ aside {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  contain: size;
 }
 aside > p {
   font-size: 14px;
@@ -66,18 +68,22 @@ aside > p {
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid #6a86d1;
-  padding: 6px 0;
+  padding: 0;
   font-size: 14px;
-  margin-bottom: auto;
+  flex-shrink: 0;
+}
+#next {
+  width: 78px;
+  height: 52px;
 }
 dl {
-  margin: 20px 0;
+  margin: 0;
 }
 dl > div {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin: 12px 0;
+  margin: 4px 0;
 }
 dt {
   font-size: 14px;
@@ -89,16 +95,18 @@ dd {
   font-variant-numeric: tabular-nums;
 }
 #status {
-  min-height: 52px;
+  min-height: 38px;
+  margin: 0;
   font-size: 13px;
+  line-height: 1.5;
 }
 .controls {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin-top: auto;
 }
-button,
-select {
+button {
   font: inherit;
   border: 0;
   border-radius: 8px;
@@ -120,23 +128,11 @@ button:disabled {
   cursor: default;
 }
 button:focus-visible,
-select:focus-visible,
 a:focus-visible {
   outline: 3px solid #ffda73;
   outline-offset: 4px;
 }
-.speed {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 20px;
-  font-size: 13px;
-}
-.speed select {
-  padding: 6px 12px;
-  color: #172449;
-}
-@media (max-width: 620px) {
+@media (max-width: 760px) {
   main {
     padding: 20px 14px;
   }
@@ -144,6 +140,9 @@ a:focus-visible {
     padding: 20px;
     gap: 24px;
     grid-template-columns: 1fr;
+  }
+  aside {
+    contain: none;
   }
   .playfield {
     width: min(100%, 270px);
@@ -167,4 +166,58 @@ a:focus-visible {
   #status {
     min-height: 0;
   }
+}
+
+.obstacle-panel {
+  margin-top: 0;
+  padding: 10px;
+  border: 1px solid #6a86d1;
+  border-radius: 12px;
+}
+.obstacle-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.obstacle-heading strong {
+  font-size: 24px;
+}
+#obstacle {
+  width: 80px;
+  height: 80px;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+#obstacle[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}
+#board {
+  touch-action: none;
+}
+.obstacle-panel p {
+  margin: 4px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+#obstacle[hidden],
+#obstacle-concealed[hidden] {
+  display: none;
+}
+#obstacle-concealed {
+  width: 80px;
+  height: 80px;
+  display: grid;
+  place-items: center;
+  font-size: 48px;
+  color: #9bb4f0;
+}
+#use-ticket,
+#discard-ticket {
+  width: 100%;
+}
+#ticket-cooldown {
+  color: #ffda73;
 }

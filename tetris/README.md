@@ -1,6 +1,8 @@
 # Tetris × Jev
 
-Watch Jev choose placements and stack tetrominoes.
+Interrupt Jev while it chooses placements and stacks tetrominoes.
+
+Earn a ticket every 4 cleared lines. **Use ticket** pauses the game and reveals a random obstacle to drag onto the floor or stack. Placing it consumes the ticket and resumes play; the next ticket unlocks after Jev places 3 pieces.
 
 Requires Bun 1.4.2+. Set `JEV_API_KEY` in `.env` (or mount the 1Password `jev` Environment at `tetris/.env`).
 
