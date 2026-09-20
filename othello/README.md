@@ -18,6 +18,5 @@ Open http://127.0.0.1:3000.
 ```sh
 bun run test
 bun run lint
-bun run typecheck
 bun run fmt:check
 ```
