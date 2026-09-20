@@ -17,7 +17,6 @@ import {
   randomObstacle,
   LINES_PER_TICKET,
   PIECES_BETWEEN_TICKETS,
-  OBSTACLE_ROWS,
   OBSTACLE_MIN_Y,
   type Obstacle,
   type Piece,
@@ -72,35 +71,51 @@ const obstacleContext = obstacleCanvas.getContext("2d")!;
 const useTicket = element<HTMLButtonElement>("use-ticket");
 const discardTicket = element<HTMLButtonElement>("discard-ticket");
 function renderObstacle() {
-  obstacleContext.clearRect(0, 0, 120, 120);
+  obstacleContext.clearRect(0, 0, obstacleCanvas.width, obstacleCanvas.height);
   const obstacle = tickets[0];
   obstacleCanvas.hidden = !placingObstacle;
   element("obstacle-concealed").hidden = placingObstacle;
   if (placingObstacle && obstacle)
-    for (const [x, y] of cells(obstacle.piece, { x: 0, y: 0, rotation: obstacle.rotation }))
-      paint(obstacleContext, x, y, 8, 28);
-  element("obstacle-range").textContent = `Obstacles: bottom ${OBSTACLE_ROWS} rows only`;
+    paintPreview(obstacleContext, obstacle.piece, obstacle.rotation, 8);
   element("tickets").textContent = String(tickets.length);
+  const progress = totalLines % LINES_PER_TICKET;
+  const remaining = LINES_PER_TICKET - progress;
   element("ticket-progress").textContent =
-    `${totalLines % LINES_PER_TICKET} / ${LINES_PER_TICKET} lines toward next ticket`;
+    `${remaining} ${remaining === 1 ? "line" : "lines"} left`;
+  const meter = element("ticket-meter");
+  meter.setAttribute("aria-valuenow", String(progress));
+  meter.setAttribute("aria-valuemax", String(LINES_PER_TICKET));
+  meter.setAttribute("aria-valuetext", `${remaining} lines until the next ticket`);
+  Array.from(meter.children).forEach((step, index) =>
+    step.classList.toggle("filled", index < progress),
+  );
   useTicket.disabled =
     !running || gameOver || placingObstacle || !tickets.length || cooldownRemaining > 0;
   useTicket.hidden = placingObstacle && obstacleBlocked;
   discardTicket.hidden = !placingObstacle || !obstacleBlocked;
   useTicket.textContent = placingObstacle ? "Placing obstacle…" : "Use ticket";
-  element("ticket-cooldown").textContent =
+  const cooldown = element("ticket-cooldown");
+  cooldown.textContent =
     cooldownRemaining > 0
-      ? `Next ticket in ${cooldownRemaining} Jev ${cooldownRemaining === 1 ? "piece" : "pieces"}`
-      : placingObstacle
-        ? "Time stopped"
-        : tickets.length
-          ? "Ticket ready"
-          : "Earn a ticket by clearing lines";
+      ? `${cooldownRemaining} ${cooldownRemaining === 1 ? "piece" : "pieces"} left`
+      : "No wait";
+  const cooldownMeter = element("cooldown-meter");
+  const completed = PIECES_BETWEEN_TICKETS - cooldownRemaining;
+  cooldownMeter.setAttribute("aria-valuenow", String(completed));
+  cooldownMeter.setAttribute("aria-valuemax", String(PIECES_BETWEEN_TICKETS));
+  cooldownMeter.setAttribute(
+    "aria-valuetext",
+    cooldownRemaining ? `${cooldownRemaining} pieces left` : "No wait",
+  );
+  Array.from(cooldownMeter.children).forEach((step, index) =>
+    step.classList.toggle("filled", index < completed),
+  );
   element("obstacle-help").textContent = placingObstacle
     ? obstacleBlocked
       ? "No room in the allowed area. Discarding consumes 1 ticket."
       : "Move over the board to preview. Click to place and resume."
-    : "Use a ticket to stop time and reveal its shape.";
+    : "";
+  element("obstacle-help").hidden = !placingObstacle;
   canvas.classList.toggle("placing-obstacle", placingObstacle && !obstacleBlocked);
   obstacleCanvas.setAttribute("aria-disabled", String(!placingObstacle || obstacleBlocked));
 }
@@ -197,19 +212,28 @@ function paint(ctx: CanvasRenderingContext2D, x: number, y: number, color: numbe
     ctx.fillRect(x * size + 3, y * size + 3, size - 6, 3);
   }
 }
-function paintPreview(ctx: CanvasRenderingContext2D, piece: Piece) {
-  const points = cells(piece, spawnPose());
+function paintPreview(
+  ctx: CanvasRenderingContext2D,
+  piece: Piece,
+  rotation = 0,
+  color = PIECES.indexOf(piece) + 1,
+) {
+  const points = cells(piece, { x: 0, y: 0, rotation });
   const minX = Math.min(...points.map(([x]) => x));
   const maxX = Math.max(...points.map(([x]) => x));
   const minY = Math.min(...points.map(([, y]) => y));
   const maxY = Math.max(...points.map(([, y]) => y));
-  const size = 26;
+  const size = Math.min(
+    26,
+    ctx.canvas.width / (maxX - minX + 1),
+    ctx.canvas.height / (maxY - minY + 1),
+  );
   ctx.save();
   ctx.translate(
     (ctx.canvas.width - (maxX - minX + 1) * size) / 2,
     (ctx.canvas.height - (maxY - minY + 1) * size) / 2,
   );
-  for (const [x, y] of points) paint(ctx, x - minX, y - minY, PIECES.indexOf(piece) + 1, size);
+  for (const [x, y] of points) paint(ctx, x - minX, y - minY, color, size);
   ctx.restore();
 }
 function render(pose: Pose = activePose) {

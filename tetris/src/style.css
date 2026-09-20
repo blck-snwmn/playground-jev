@@ -11,7 +11,7 @@ body {
   margin: 0;
 }
 main {
-  max-width: 1000px;
+  max-width: 820px;
   margin: auto;
   padding: 32px 24px;
 }
@@ -31,12 +31,12 @@ header a {
 .machine {
   background: #244bb8;
   border-radius: 28px;
-  padding: 32px;
+  padding: 24px;
   display: grid;
-  grid-template-columns: 96px minmax(240px, 300px) minmax(260px, 1fr);
+  grid-template-columns: 96px minmax(240px, 300px) minmax(200px, 220px);
   grid-template-rows: auto 1fr;
   grid-template-areas: "hold board next" "hold board panel";
-  gap: 12px 24px;
+  gap: 12px 20px;
   box-shadow: 0 12px 0 #183789;
   color: white;
   justify-content: center;
@@ -61,6 +61,7 @@ aside {
   flex-direction: column;
   gap: 8px;
   contain: size;
+  justify-content: flex-end;
 }
 aside > p {
   font-size: 14px;
@@ -127,9 +128,8 @@ aside > p {
 }
 .controls {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: auto;
+  gap: 8px;
+  flex-shrink: 0;
 }
 button {
   font: inherit;
@@ -144,9 +144,23 @@ button {
   background: white;
 }
 button.secondary {
-  background: #365dc7;
-  color: white;
+  background: transparent;
+  color: #17367f;
   border: 1px solid #8da4e7;
+}
+.controls button {
+  height: 44px;
+  padding: 0 12px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+#toggle {
+  width: 148px;
+  background: #244bb8;
+  color: white;
+}
+#reset {
+  width: 112px;
 }
 button:disabled {
   opacity: 0.6;
@@ -157,7 +171,7 @@ a:focus-visible {
   outline: 3px solid #ffda73;
   outline-offset: 4px;
 }
-@media (max-width: 850px) {
+@media (max-width: 760px) {
   main {
     padding: 20px 14px;
   }
@@ -203,12 +217,12 @@ a:focus-visible {
 }
 
 .obstacle-panel {
-  margin-top: 0;
-  padding: 10px;
-  border: 1px solid #6a86d1;
-  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .obstacle-heading {
+  font-size: 14px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -217,8 +231,8 @@ a:focus-visible {
   font-size: 24px;
 }
 #obstacle {
-  width: 56px;
-  height: 56px;
+  width: 78px;
+  height: 52px;
   display: block;
   cursor: default;
   touch-action: none;
@@ -241,8 +255,8 @@ a:focus-visible {
   display: none;
 }
 #obstacle-concealed {
-  width: 56px;
-  height: 56px;
+  width: 78px;
+  height: 52px;
   display: grid;
   place-items: center;
   font-size: 48px;
@@ -254,6 +268,7 @@ a:focus-visible {
 }
 #ticket-cooldown {
   color: #ffda73;
+  min-height: 18px;
 }
 
 .hold-used {
@@ -262,4 +277,74 @@ a:focus-visible {
 
 #board.placing-obstacle {
   cursor: crosshair;
+}
+
+@media (max-width: 540px) {
+  header {
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .controls {
+    margin-left: auto;
+  }
+}
+
+#obstacle-slot {
+  width: 96px;
+}
+
+.obstacle-actions {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+}
+.ticket-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 92px;
+  gap: 8px;
+}
+.ticket-actions button {
+  min-height: 48px;
+  padding: 8px;
+  font-size: 12px;
+}
+
+.ticket-progress-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+#ticket-meter,
+#cooldown-meter {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  margin: 8px 0;
+}
+#ticket-meter span,
+#cooldown-meter span {
+  height: 8px;
+  border: 1px solid #a5b8dd;
+  border-radius: 2px;
+  background: #152854;
+}
+#ticket-meter .filled {
+  background: #ffda73;
+  border-color: #ffda73;
+}
+
+#cooldown-meter {
+  grid-template-columns: repeat(3, 1fr);
+}
+#cooldown-meter .filled {
+  background: #83dea8;
+  border-color: #83dea8;
+}
+.cooldown-heading {
+  margin-top: 12px;
 }
