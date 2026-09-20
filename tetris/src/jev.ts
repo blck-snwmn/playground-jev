@@ -1,4 +1,4 @@
-import { metrics, type Placement, type Position } from "./game";
+import { fits, metrics, type Placement, type Position } from "./game";
 export function buildJevRequest(position: Position, model: string, candidates: Placement[]) {
   const currentMetrics = metrics(position.board);
   return {
@@ -11,17 +11,18 @@ export function buildJevRequest(position: Position, model: string, candidates: P
       next: position.next,
       currentMetrics,
       metricGuide:
-        "holes counts empty cells with an occupied cell above in the same column; height is maximum column height; bumpiness is the sum of adjacent column height differences. Candidate metrics are measured after placement and line clears. delta is candidate minus current: positive means an increase. lines counts rows cleared by this move.",
+        "holes counts empty cells with an occupied cell above in the same column; height is maximum column height; bumpiness is the sum of adjacent column height differences. Candidate metrics are measured after placement and line clears. delta is candidate minus current: positive means an increase. lines counts rows cleared by this move. nextCanSpawn indicates whether the next piece fits at its spawn position after this placement and line clears, assuming no further obstacles are added; false means immediate game over on the next turn.",
     },
     questions: {
       move: {
         type: "choice",
         instructions:
-          "Choose a placement to survive and clear lines. Prioritize avoiding an increase in buried holes over making the surface flatter. Do not create buried holes merely to reduce bumpiness. Compare each candidate with currentMetrics using delta; prefer preserving or reducing holes, then consider line clears, stack height, and surface shape. Consider the next piece.",
+          "Choose a placement to survive and clear lines. Survival takes priority over all other metrics: if any candidate has nextCanSpawn=true, choose one of those candidates. When the stack is high and space near the top is limited, prioritize line clears and keeping stack height low over making the surface flatter; accept a modest increase in holes if needed to avoid a dangerous increase in height. Otherwise, prioritize avoiding an increase in buried holes over making the surface flatter. Do not create buried holes merely to reduce bumpiness. Compare each candidate with currentMetrics using delta; apply the survival and high-stack priorities first, then prefer preserving or reducing holes and consider line clears, stack height, and surface shape. Consider the next piece.",
         criteria: Object.fromEntries(
           candidates.map((p) => [
             p.id,
             {
+              nextCanSpawn: fits(p.board, position.next, { x: 3, y: 0, rotation: 0 }),
               lines: p.lines,
               holes: p.holes,
               height: p.height,
