@@ -13,7 +13,7 @@
     "build": "bun run --filter jev-inquiries build"
   },
   "devDependencies": {
-    "oxfmt": "0.68.0"
+    "oxfmt": "0.70.0"
   },
   "packageManager": "bun@1.4.2"
 }
