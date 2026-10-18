@@ -1,7 +1,8 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { handleLocate } from "./api";
 import { preparedSize, validatePreparedImage } from "./image";
-import { answersSchema } from "./schema";
+import { answersSchema, type TargetInput } from "./schema";
+import { colorDistance, newTarget, type TargetRow } from "./targets";
 import { startServer } from "./server";
 
 const originalKey = process.env.JEV_API_KEY;
@@ -21,9 +22,15 @@ function pngHeader(width = 800, height = 600) {
   view.setUint32(20, height);
   return new File([bytes], "image.png", { type: "image/png" });
 }
-function body(question = "左のりんごはどこ？", image = pngHeader()) {
+const firstId = "00000000-0000-4000-8000-000000000001";
+const secondId = "00000000-0000-4000-8000-000000000002";
+function body(
+  question = "左のりんごはどこ？",
+  image = pngHeader(),
+  targets: TargetInput[] = [{ id: firstId, question }],
+) {
   const form = new FormData();
-  form.append("question", question);
+  form.append("targets", JSON.stringify(targets));
   form.append("image", image);
   return form;
 }
@@ -90,12 +97,37 @@ test("missing key is reported before contacting Jev", async () => {
 test("multipart transport pins model, opts in, and sends one shared image for both questions", async () => {
   process.env.JEV_API_KEY = "test-key";
   fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(
-    Response.json({ answers, model: "jev-1.14.0", usage: { input_tokens: 120 } }),
+    Response.json({
+      answers: {
+        present_0: answers.present,
+        target_0: answers.target,
+        present_1: { type: "noul", noul: 0.1 },
+        target_1: {
+          ...answers.target,
+          confidence: null,
+          box: { left: 0.6, right: 0.9, top: 0.1, bottom: 0.3 },
+        },
+      },
+      model: "jev-1.14.0",
+      usage: { input_tokens: 120 },
+    }),
   );
-  const response = await handleLocate(request());
+  const targets = [
+    { id: secondId, question: "  左のりんごはどこ？  " },
+    { id: firstId, question: "青い四角はどこ？" },
+  ];
+  const response = await handleLocate(request(body(undefined, undefined, targets)));
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({
-    ...answers,
+    targets: [
+      { ...answers, id: secondId, question: "左のりんごはどこ？" },
+      {
+        id: firstId,
+        question: "青い四角はどこ？",
+        present: { noul: 0.1 },
+        target: { confidence: null, box: { left: 0.6 } },
+      },
+    ],
     requestedModel: "jev-1.14.0",
     usage: { input_tokens: 120, output_tokens: null },
   });
@@ -110,12 +142,22 @@ test("multipart transport pins model, opts in, and sends one shared image for bo
   const payload = JSON.parse(await json.text()) as {
     state: { photo: string };
     assets: Record<string, unknown>;
+    questions: Record<string, { instructions: string }>;
   };
   expect(payload).toMatchObject({
     model: "jev-1.14.0",
-    state: { request: "左のりんごはどこ？" },
-    questions: { present: { type: "noul" }, target: { type: "box" } },
+    state: { requests: { item_0: "左のりんごはどこ？", item_1: "青い四角はどこ？" } },
+    questions: {
+      present_0: { type: "noul" },
+      target_0: { type: "box" },
+      present_1: { type: "noul" },
+      target_1: { type: "box" },
+    },
   });
+  for (const index of [0, 1]) {
+    expect(payload.questions[`present_${index}`]!.instructions).toContain(`requests.item_${index}`);
+    expect(payload.questions[`target_${index}`]!.instructions).toContain(`requests.item_${index}`);
+  }
   expect(payload.assets[payload.state.photo]).toEqual({ type: "image", part: "photo" });
 });
 test("rejects invalid coordinates and accepts unknown confidence", () => {
@@ -141,7 +183,9 @@ test("upstream failures and malformed results become safe errors", async () => {
   expect(response.status).toBe(502);
   expect(await response.text()).not.toContain("private-detail");
   fetchSpy.mockResolvedValue(
-    Response.json({ answers: { ...answers, target: { type: "box", box: null } } }),
+    Response.json({
+      answers: { present_0: answers.present, target_0: { type: "box", box: null } },
+    }),
   );
   response = await handleLocate(request());
   expect(response.status).toBe(502);
@@ -152,7 +196,7 @@ test("serves the app and routes uploads", async () => {
   try {
     const page = await fetch(server.url);
     expect(page.status).toBe(200);
-    expect(await page.text()).toContain("画像の中を探す");
+    expect(await page.text()).toContain("Find in image");
     const response = await fetch(new URL("/api/locate", server.url), {
       method: "POST",
       headers: { origin: server.url.origin },
@@ -163,4 +207,73 @@ test("serves the app and routes uploads", async () => {
   } finally {
     await server.stop(true);
   }
+});
+
+test("rejects empty, oversized, duplicate-ID and malformed target lists before calling Jev", async () => {
+  fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected API call"));
+  for (const targets of [
+    [],
+    Array.from({ length: 11 }, () => ({ id: crypto.randomUUID(), question: "target" })),
+    [
+      { id: firstId, question: "one" },
+      { id: firstId, question: "two" },
+    ],
+    [{ id: "bad", question: "target" }],
+    [{ id: firstId, question: "" }],
+  ]) {
+    expect((await handleLocate(request(body(undefined, undefined, targets)))).status).toBe(400);
+  }
+  for (const value of ["{", "null", "{}", '["target"]']) {
+    const form = body();
+    form.set("targets", value);
+    expect((await handleLocate(request(form))).status).toBe(400);
+  }
+  expect(fetchSpy).not.toHaveBeenCalled();
+});
+
+test("ten targets share a single image request and all expected answers are required", async () => {
+  process.env.JEV_API_KEY = "test-key";
+  const targets = Array.from({ length: 10 }, (_, index) => ({
+    id: crypto.randomUUID(),
+    question: `target ${index}`,
+  }));
+  const upstream: Record<string, unknown> = {};
+  for (let index = 0; index < targets.length; index++) {
+    upstream[`present_${index}`] = answers.present;
+    upstream[`target_${index}`] = answers.target;
+  }
+  fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ answers: upstream }));
+  expect((await handleLocate(request(body(undefined, undefined, targets)))).status).toBe(200);
+  expect(fetchSpy).toHaveBeenCalledTimes(1);
+  delete upstream.target_9;
+  fetchSpy.mockResolvedValue(Response.json({ answers: upstream }));
+  expect((await handleLocate(request(body(undefined, undefined, targets)))).status).toBe(502);
+});
+
+test("target colors and IDs remain unique when adding and replacing rows", () => {
+  const rows: TargetRow[] = [];
+  for (let index = 0; index < 10; index++) rows.push(newTarget(rows));
+  expect(new Set(rows.map((row) => row.id)).size).toBe(10);
+  expect(new Set(rows.map((row) => row.color)).size).toBe(10);
+  const removed = rows.splice(3, 1)[0]!;
+  const snapshot = structuredClone(rows);
+  const replacement = newTarget(rows);
+  expect(replacement.color).toBe(removed.color);
+  expect(replacement.id).not.toBe(removed.id);
+  expect(rows).toEqual(snapshot);
+});
+
+test("palette stays separated at ten inputs and new pairs never start with nearby colors", () => {
+  const rows: TargetRow[] = [];
+  for (let index = 0; index < 10; index++) rows.push(newTarget(rows));
+  for (let index = 0; index < rows.length; index++) {
+    for (let other = 0; other < index; other++) {
+      // Regression floor for this palette, not a universal visibility threshold.
+      expect(colorDistance(rows[index]!.color, rows[other]!.color)).toBeGreaterThan(0.15);
+    }
+    const first = rows[index]!;
+    expect(colorDistance(first.color, newTarget([first]).color)).toBeGreaterThan(0.3);
+  }
+  const teal = { id: crypto.randomUUID(), question: "", color: "#007c83" };
+  expect(colorDistance(teal.color, newTarget([teal]).color)).toBeGreaterThan(0.3);
 });

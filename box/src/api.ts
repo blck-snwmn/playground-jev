@@ -1,42 +1,46 @@
 import { validatePreparedImage } from "./image";
 import { locate } from "./jev";
-import { MAX_QUESTION_LENGTH } from "./schema";
+import { targetsSchema } from "./schema";
 
 const error = (message: string, status: number) => Response.json({ error: message }, { status });
 
 export async function handleLocate(request: Request) {
   if (request.headers.get("origin") !== new URL(request.url).origin) {
-    return error("このページから実行してください。", 403);
+    return error("Please run the request from this page.", 403);
   }
   let form: FormData;
   try {
     form = await request.formData();
   } catch {
-    return error("画像と質問文を読み取れませんでした。", 400);
+    return error("Could not read the image and questions.", 400);
   }
   const image = form.get("image");
-  const question = form.get("question");
-  if (
-    typeof question !== "string" ||
-    !question.trim() ||
-    question.trim().length > MAX_QUESTION_LENGTH
-  ) {
-    return error("質問文を1〜1000文字で入力してください。", 400);
+  let input: unknown;
+  try {
+    const text = form.get("targets");
+    if (typeof text !== "string") return error("Could not read the questions.", 400);
+    input = JSON.parse(text);
+  } catch {
+    return error("Could not read the questions.", 400);
+  }
+  const targets = targetsSchema.safeParse(input);
+  if (!targets.success) {
+    return error("Enter 1 to 10 questions, each between 1 and 1000 characters.", 400);
   }
   if (!(image instanceof File) || !(await validatePreparedImage(image))) {
-    return error("画像を読み取れませんでした。PNGまたはJPEGを選び直してください。", 400);
+    return error("Could not read the image. Please select a PNG or JPEG again.", 400);
   }
   const key = process.env.JEV_API_KEY;
   if (!key)
     return error(
-      "サーバーのAPIキーが未設定です。box/.envにJEV_API_KEYを設定して再起動してください。",
+      "The server API key is missing. Set JEV_API_KEY in box/.env and restart the server.",
       503,
     );
   try {
-    return Response.json(await locate(image, question.trim(), key));
+    return Response.json(await locate(image, targets.data, key));
   } catch {
     return error(
-      "Jevでの処理に失敗しました。APIキー、利用上限、接続を確認して再実行してください。",
+      "The Jev request failed. Check the API key, usage limits, and connection, then try again.",
       502,
     );
   }

@@ -14,10 +14,10 @@ export function preparedSize(width: number, height: number) {
 
 export async function prepareImage(file: File) {
   if (!["image/png", "image/jpeg"].includes(file.type)) {
-    throw new Error("PNGまたはJPEGの画像を選んでください。");
+    throw new Error("Please select a PNG or JPEG image.");
   }
   if (!file.size || file.size > MAX_IMAGE_BYTES) {
-    throw new Error("画像は16 MiB以下のファイルを選んでください。");
+    throw new Error("Please select an image no larger than 16 MiB.");
   }
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   try {
@@ -26,7 +26,7 @@ export async function prepareImage(file: File) {
     canvas.width = size.width;
     canvas.height = size.height;
     const context = canvas.getContext("2d");
-    if (!context) throw new Error("画像を準備できませんでした。");
+    if (!context) throw new Error("Could not prepare the image.");
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, size.width, size.height);
     context.drawImage(
@@ -38,12 +38,12 @@ export async function prepareImage(file: File) {
     );
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
-        (value) => (value ? resolve(value) : reject(new Error("画像を変換できませんでした。"))),
+        (value) => (value ? resolve(value) : reject(new Error("Could not convert the image."))),
         "image/png",
       );
     });
     if (blob.size > MAX_IMAGE_BYTES)
-      throw new Error("変換後の画像が大きすぎます。小さな画像を選んでください。");
+      throw new Error("The prepared image is too large. Please select a smaller image.");
     return {
       file: new File([blob], "image.png", { type: "image/png" }),
       width: size.width,

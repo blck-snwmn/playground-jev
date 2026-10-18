@@ -1,33 +1,48 @@
 import { readJevMetadata } from "@playground-jev/common";
 import { z } from "zod";
-import { answersSchema, MODEL, type BoxResult } from "./schema";
+import { answersSchema, MODEL, type TargetInput, type BoxResult } from "./schema";
 
-export function buildJevRequest(question: string, assetId: string) {
+export function buildJevRequest(targets: TargetInput[], assetId: string) {
   return {
     model: MODEL,
-    state: { photo: assetId, request: question },
-    assets: { [assetId]: { type: "image", part: "photo" } },
-    questions: {
-      present: {
-        type: "noul",
-        instructions:
-          "Is the specific target described or asked about in `request` visible in `photo`? Evaluate presence only.",
-      },
-      target: {
-        type: "box",
-        instructions:
-          "Locate the single target described or asked about in `request` within `photo`. Follow any positional or descriptive qualifiers in the request.",
-      },
+    state: {
+      photo: assetId,
+      requests: Object.fromEntries(
+        targets.map((target, index) => [`item_${index}`, target.question]),
+      ),
     },
+    assets: { [assetId]: { type: "image", part: "photo" } },
+    questions: Object.fromEntries(
+      targets.flatMap((_, index) => [
+        [
+          `present_${index}`,
+          {
+            type: "noul",
+            instructions: `Is the specific target described or asked about in \`requests.item_${index}\` visible in \`photo\`? Evaluate presence only.`,
+          },
+        ],
+        [
+          `target_${index}`,
+          {
+            type: "box",
+            instructions: `Locate the single target described or asked about in \`requests.item_${index}\` within \`photo\`. Follow any positional or descriptive qualifiers in that request.`,
+          },
+        ],
+      ]),
+    ),
   };
 }
 
-export async function locate(file: File, question: string, apiKey: string): Promise<BoxResult> {
+export async function locate(
+  file: File,
+  targets: TargetInput[],
+  apiKey: string,
+): Promise<BoxResult> {
   const started = performance.now();
   const body = new FormData();
   body.append(
     "request",
-    new Blob([JSON.stringify(buildJevRequest(question, crypto.randomUUID()))], {
+    new Blob([JSON.stringify(buildJevRequest(targets, crypto.randomUUID()))], {
       type: "application/json",
     }),
   );
@@ -40,9 +55,15 @@ export async function locate(file: File, question: string, apiKey: string): Prom
   });
   if (!response.ok) throw new Error("Jev request failed");
   const raw: unknown = await response.json();
-  const { answers } = z.object({ answers: answersSchema }).parse(raw);
+  const { answers } = z.object({ answers: z.record(z.string(), z.unknown()) }).parse(raw);
   return {
-    ...answers,
+    targets: targets.map((target, index) => ({
+      ...target,
+      ...answersSchema.parse({
+        present: answers[`present_${index}`],
+        target: answers[`target_${index}`],
+      }),
+    })),
     ...readJevMetadata(raw, MODEL),
     elapsed: Math.round(performance.now() - started),
   };
