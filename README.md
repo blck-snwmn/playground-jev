@@ -5,6 +5,7 @@ Small apps for experimenting with Jev.
 - [Othello](./othello/README.md): Play against Jev or watch Jev play itself. Built with Bun.
 - [Inquiries](./inquiries/README.md): Compare urgency, wording, and department suggestions for fixed sample inquiries. Built with React and Bun.
 - [Tetris](./tetris/README.md): Watch Jev choose placements and stack tetrominoes. Built with Bun.
+- [Box](./box/README.md): Upload an image and locate a target described in a question. Built with React and Bun.
 
 ## Setup
 
@@ -15,11 +16,12 @@ bun install --frozen-lockfile
 bun run --filter jev-othello dev
 ```
 
-Replace `jev-othello` with `jev-tetris` or `jev-inquiries`. See each app's README for `.env` setup.
+Replace `jev-othello` with `jev-tetris`, `jev-inquiries`, or `jev-box`. See each app's README for `.env` setup.
 
 ## Model selection and results
 
-All three apps offer `jev-1.13.0` and `jev-1.14.0`, defaulting to `jev-1.13.0`.
+Othello, Tetris, and Inquiries offer `jev-1.13.0` and `jev-1.14.0`, defaulting to `jev-1.13.0`.
+Box uses `jev-1.14.0`, which supports the experimental Box question type.
 They send fixed model IDs so an alias update cannot silently change a run.
 Results record the requested model, the returned model, elapsed milliseconds,
 input/output token counts, and recording time. Missing upstream metadata is
@@ -51,7 +53,7 @@ check formatting of the root configuration. Lint enables both `typeAware` and
 `tsconfig.json`.
 
 ```sh
-bun run build  # Build Inquiries (Othello/Tetris run directly from source)
+bun run build  # Build Inquiries and Box (Othello/Tetris run directly from source)
 ```
 
 CI runs the workspace tests, which mock Jev responses.

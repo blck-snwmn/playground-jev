@@ -5,13 +5,14 @@
     "othello",
     "tetris",
     "inquiries",
-    "common"
+    "common",
+    "box"
   ],
   "scripts": {
     "test": "bun run --workspaces test",
     "lint": "bun run --workspaces lint",
     "fmt:check": "oxfmt --check package.json README.md .github aqua.yaml && bun run --workspaces fmt:check",
-    "build": "bun run --filter jev-inquiries build"
+    "build": "bun run --filter jev-inquiries --filter jev-box build"
   },
   "devDependencies": {
     "oxfmt": "0.73.0"
