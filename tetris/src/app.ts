@@ -1,3 +1,5 @@
+import { DEFAULT_JEV_MODEL, JEV_MODELS, isJevModel } from "@playground-jev/common";
+import type { chooseMove } from "./jev";
 import {
   PIECES,
   cells,
@@ -41,6 +43,9 @@ const colors = [
   "#ffb47b",
   "#b9becd",
 ];
+const modelSelect = element<HTMLSelectElement>("model");
+for (const model of JEV_MODELS) modelSelect.add(new Option(model, model));
+let activeModel = DEFAULT_JEV_MODEL;
 let gameId = crypto.randomUUID();
 let drawPiece = createBag();
 let position: Position = {
@@ -291,6 +296,7 @@ function render(pose: Pose = activePose) {
   element("pieces").textContent = String(totalPieces);
 }
 function buttons() {
+  modelSelect.disabled = started && !gameOver;
   toggle.textContent = "Pause";
   toggle.disabled = !running || gameOver || placingObstacle;
   element("game-controls").hidden = !started || !running || gameOver;
@@ -347,12 +353,20 @@ async function play() {
           : "Jev is choosing a placement…";
         controller = new AbortController();
         let response: Response;
-        let data: { choice?: string; elapsed?: number; error?: string; requestId?: string };
+        let data: Partial<Awaited<ReturnType<typeof chooseMove>>> & {
+          error?: string;
+          requestId?: string;
+        };
         try {
           response = await fetch("/api/jev", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...snapshot, gameId, turn: totalPieces + 1 }),
+            body: JSON.stringify({
+              ...snapshot,
+              gameId,
+              turn: totalPieces + 1,
+              model: activeModel,
+            }),
             signal: controller.signal,
           });
           data = (await response.json()) as typeof data;
@@ -374,6 +388,8 @@ async function play() {
           render();
         }
         requestId = data.requestId;
+        element("decision-details").textContent =
+          `Last decision: ${data.elapsed ?? "—"} ms. Requested: ${data.requestedModel ?? "Unavailable"}. Returned: ${data.model ?? "Unavailable"}. Tokens: ${data.usage?.input_tokens ?? "—"} input / ${data.usage?.output_tokens ?? "—"} output.`;
         replanning = false;
         status.textContent = running
           ? "Moving to the chosen placement."
@@ -433,6 +449,12 @@ toggle.addEventListener("click", () => {
 element("board-action").addEventListener("click", () => {
   if (!configured || placingObstacle) return;
   if (gameOver) resetGame();
+  if (!started) {
+    const model = modelSelect.value;
+    if (!isJevModel(model)) return;
+    activeModel = model;
+    element("game-model").textContent = `Current game: ${activeModel}`;
+  }
   started = true;
   running = true;
   render();
@@ -441,6 +463,8 @@ element("board-action").addEventListener("click", () => {
 });
 element("reset").addEventListener("click", () => resetGame());
 function resetGame() {
+  element("game-model").textContent = "";
+  element("decision-details").textContent = "";
   started = false;
   epoch++;
   gameOver = false;

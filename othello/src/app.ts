@@ -1,9 +1,12 @@
-import { BLACK, WHITE, type Position } from "./game";
+import { DEFAULT_JEV_MODEL, JEV_MODELS, isJevModel, downloadJson } from "@playground-jev/common";
+import { BLACK, WHITE, createInitialBoard, type Position } from "./game";
 import type { JevMoveResult } from "./jev";
 import { MatchController, type MatchMode } from "./match";
 import { elements, renderMatch } from "./view";
 
 let jevConfigured = false;
+let activeModel = DEFAULT_JEV_MODEL;
+for (const model of JEV_MODELS) elements.model.add(new Option(model, model));
 const match = new MatchController(requestJevMove, (state) => {
   renderMatch(state, (move) => match.playHumanMove(move));
 });
@@ -16,6 +19,10 @@ function startMatch(): void {
     return;
   }
   const humanColor = elements.color.value === String(BLACK) ? BLACK : WHITE;
+  const model = elements.model.value;
+  if (!isJevModel(model)) return;
+  activeModel = model;
+  elements.gameModel.textContent = mode === "human-human" ? "" : `Current game: ${activeModel}`;
   match.start(mode, humanColor);
 }
 
@@ -23,7 +30,7 @@ async function requestJevMove(position: Position, signal: AbortSignal): Promise<
   const response = await fetch("/api/jev", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(position),
+    body: JSON.stringify({ ...position, model: activeModel }),
     signal,
   });
   if (!response.ok) {
@@ -49,6 +56,14 @@ async function checkConnection(): Promise<void> {
 
 // Connect UI events to match actions.
 elements.start.onclick = startMatch;
+elements.download.onclick = () =>
+  downloadJson("othello-game.json", {
+    schema: 1,
+    exportedAt: new Date().toISOString(),
+    requestedModel: activeModel,
+    initialBoard: createInitialBoard(),
+    ...match.state,
+  });
 elements.pause.onclick = () => match.togglePause();
 elements.step.onclick = () => void match.step();
 elements.mode.onchange = () => {

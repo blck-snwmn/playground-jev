@@ -1,3 +1,4 @@
+import { readJevMetadata, readChoiceDetails } from "@playground-jev/common";
 import { fits, metrics, type Placement, type Position } from "./game";
 export function buildJevRequest(position: Position, model: string, candidates: Placement[]) {
   const currentMetrics = metrics(position.board);
@@ -60,8 +61,14 @@ export async function chooseMove(request: ReturnType<typeof buildJevRequest>, ap
   });
   if (!response.ok) throw new Error("Jev request failed");
   const data: unknown = await response.json();
-  const choice = (data as { answers?: { move?: { choice?: unknown } } })?.answers?.move?.choice;
+  const answer = (data as { answers?: { move?: { choice?: unknown } } } | null)?.answers?.move;
+  const choice = answer?.choice;
   if (typeof choice !== "string" || !Object.hasOwn(request.questions.move.criteria, choice))
     throw new Error("Invalid Jev choice");
-  return { choice, elapsed: Math.round(performance.now() - start) };
+  return {
+    choice,
+    elapsed: Math.round(performance.now() - start),
+    ...readChoiceDetails(answer),
+    ...readJevMetadata(data, request.model),
+  };
 }

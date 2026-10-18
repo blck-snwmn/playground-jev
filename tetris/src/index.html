@@ -11,6 +11,11 @@
       <header>
         <a href="/">Tetris × Jev</a>
       </header>
+      <div class="model-controls">
+        <label for="model">Jev model for new game</label>
+        <select id="model"></select>
+        <span id="game-model"></span>
+      </div>
       <section class="machine">
         <div class="jev-side">
           <div class="piece-slot" id="hold-slot">
@@ -109,6 +114,7 @@
           </section>
         </aside>
       </section>
+      <p id="decision-details"></p>
       <p id="status" role="status">Checking configuration…</p>
     </main>
     <script type="module" src="./app.ts"></script>

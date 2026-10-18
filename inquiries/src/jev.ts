@@ -1,11 +1,12 @@
+import { DEFAULT_JEV_MODEL, readJevMetadata, type JevModel } from "@playground-jev/common";
 import { z } from "zod";
 import { answersSchema, type TriageResult } from "./schema";
 import { context, type Inquiry } from "./data";
 import { departments, departmentRoles, pressureLevels, urgencyLevels } from "./triage";
 
-export function buildJevRequest(inquiry: Inquiry) {
+export function buildJevRequest(inquiry: Inquiry, model: JevModel = DEFAULT_JEV_MODEL) {
   return {
-    model: "jev-latest",
+    model,
     state: {
       ...context,
       departments: Object.entries(departmentRoles)
@@ -39,7 +40,11 @@ export function buildJevRequest(inquiry: Inquiry) {
   };
 }
 
-export async function classifyInquiry(inquiry: Inquiry, apiKey: string): Promise<TriageResult> {
+export async function classifyInquiry(
+  inquiry: Inquiry,
+  apiKey: string,
+  model: JevModel = DEFAULT_JEV_MODEL,
+): Promise<TriageResult> {
   const started = performance.now();
   const response = await fetch("https://api.typesafe.ai/v1/systemone", {
     method: "POST",
@@ -47,10 +52,15 @@ export async function classifyInquiry(inquiry: Inquiry, apiKey: string): Promise
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(buildJevRequest(inquiry)),
+    body: JSON.stringify(buildJevRequest(inquiry, model)),
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error("Jev request failed");
-  const data = z.object({ answers: answersSchema }).parse(await response.json());
-  return { ...data.answers, elapsed: Math.round(performance.now() - started) };
+  const raw: unknown = await response.json();
+  const data = z.object({ answers: answersSchema }).parse(raw);
+  return {
+    ...data.answers,
+    elapsed: Math.round(performance.now() - started),
+    ...readJevMetadata(raw, model),
+  };
 }

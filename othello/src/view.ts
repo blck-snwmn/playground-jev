@@ -29,6 +29,9 @@ export const elements = {
   connection: element<HTMLElement>("connection"),
   mode: element<HTMLSelectElement>("mode"),
   color: element<HTMLSelectElement>("color"),
+  model: element<HTMLSelectElement>("model"),
+  gameModel: element<HTMLElement>("game-model"),
+  download: element<HTMLButtonElement>("download"),
   start: element<HTMLButtonElement>("new"),
   pause: element<HTMLButtonElement>("pause"),
   step: element<HTMLButtonElement>("step"),
@@ -100,7 +103,11 @@ function describeJevResult(result: JevMoveResult): string {
 
   const lines = [`${result.elapsed} ms · ${confidence}`];
   if (candidates) lines.push(`Candidates: ${candidates}`);
-  if (result.model) lines.push(result.model);
+  lines.push(`Requested: ${result.requestedModel ?? "Unavailable"}`);
+  lines.push(`Returned: ${result.model ?? "Unavailable"}`);
+  lines.push(
+    `Tokens: ${result.usage?.input_tokens ?? "—"} input / ${result.usage?.output_tokens ?? "—"} output`,
+  );
   return lines.join("\n");
 }
 
@@ -137,6 +144,7 @@ export function renderMatch(state: MatchState, onMove: (move: number) => void): 
   elements.pause.textContent = state.paused ? "Resume" : "Pause";
   elements.step.disabled = !state.active || !state.paused || !isJevTurn(state) || state.thinking;
   elements.emptyHistory.hidden = state.history.length > 0;
+  elements.download.disabled = state.history.length === 0;
   elements.history.replaceChildren(...state.history.toReversed().map(renderHistoryEntry));
   renderBoard(state, onMove);
 }

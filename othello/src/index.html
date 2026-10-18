@@ -51,6 +51,9 @@
             <option value="1">Black (first)</option>
             <option value="-1">White (second)</option>
           </select>
+          <label for="model">Jev model for new game</label>
+          <select id="model"></select>
+          <p id="game-model" class="note"></p>
           <button id="new" class="primary">Start game</button>
           <div class="controls">
             <button id="pause" disabled>Pause</button><button id="step" disabled>Next move</button>
@@ -66,6 +69,7 @@
             <span id="total-time">Jev requests: 0</span>
           </div>
           <p id="empty">Moves and Jev decisions appear here once a game starts.</p>
+          <button id="download" disabled>Download game JSON</button>
           <ol id="log"></ol>
         </section>
       </aside>

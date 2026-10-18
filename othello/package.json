@@ -11,6 +11,9 @@
     "lint": "oxlint --deny-warnings src",
     "lint:fix": "oxlint --deny-warnings src --fix"
   },
+  "dependencies": {
+    "@playground-jev/common": "workspace:*"
+  },
   "devDependencies": {
     "@types/bun": "1.4.3",
     "oxfmt": "0.73.0",

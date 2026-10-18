@@ -17,6 +17,22 @@ bun run --filter jev-othello dev
 
 Replace `jev-othello` with `jev-tetris` or `jev-inquiries`. See each app's README for `.env` setup.
 
+## Model selection and results
+
+All three apps offer `jev-1.13.0` and `jev-1.14.0`, defaulting to `jev-1.13.0`.
+They send fixed model IDs so an alias update cannot silently change a run.
+Results record the requested model, the returned model, elapsed milliseconds,
+input/output token counts, and recording time. Missing upstream metadata is
+shown as unavailable and saved as `null`.
+
+Othello and Tetris keep the chosen model for the entire game. Othello exports
+its current game as JSON; Tetris saves decisions in its existing JSONL logs.
+Inquiries keeps results separately per model and exports every successful run
+in the current browser session. Download browser results before reloading or
+starting a new Othello game.
+
+`common/` contains the shared model list and result metadata helpers.
+
 ## Checks
 
 Check all apps:

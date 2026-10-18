@@ -463,3 +463,20 @@ a:focus-visible {
 #discard-ticket:not([hidden]):focus-visible + #discard-hint {
   visibility: visible;
 }
+
+.model-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+.model-controls select {
+  font: inherit;
+  padding: 6px;
+}
+#decision-details {
+  max-width: 80ch;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}

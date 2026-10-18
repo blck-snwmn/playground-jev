@@ -57,10 +57,26 @@ test("returns validated classifications through the POST handler", async () => {
       },
     },
   };
-  fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ answers }));
-  const response = await handleTriage(request());
+  fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(
+    Response.json({
+      answers,
+      model: "jev-1.14.0",
+      usage: { input_tokens: 120, output_tokens: 30 },
+    }),
+  );
+  const response = await handleTriage(
+    request(JSON.stringify({ id: inquiries[0].id, model: "jev-1.14.0" })),
+  );
   expect(response.status).toBe(200);
-  expect(await response.json()).toMatchObject(answers);
+  expect(await response.json()).toMatchObject({
+    ...answers,
+    requestedModel: "jev-1.14.0",
+    model: "jev-1.14.0",
+    usage: { input_tokens: 120, output_tokens: 30 },
+  });
+  const body = fetchSpy.mock.calls[0][1]?.body;
+  if (typeof body !== "string") throw new Error("Expected JSON");
+  expect(JSON.parse(body)).toHaveProperty("model", "jev-1.14.0");
 });
 
 test("hides upstream errors from the API response", async () => {
@@ -95,4 +111,14 @@ test("serves the React entrypoint and routes API requests", async () => {
   } finally {
     await server.stop(true);
   }
+});
+
+test("rejects unsupported model IDs before classification", async () => {
+  process.env.JEV_API_KEY = "test-key";
+  fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected API call"));
+  for (const model of ["jev-latest", "other", null, 14])
+    expect(
+      (await handleTriage(request(JSON.stringify({ id: inquiries[0].id, model })))).status,
+    ).toBe(400);
+  expect(fetchSpy).not.toHaveBeenCalled();
 });

@@ -38,7 +38,8 @@ small,
   font-size: 0.85rem;
 }
 button,
-input {
+input,
+select {
   font: inherit;
 }
 button {
@@ -181,6 +182,10 @@ dd {
   gap: 12px;
   padding: 3px 0;
 }
+.probabilities li > span:last-child {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .result > small {
   display: block;
   margin-top: 16px;
@@ -217,4 +222,12 @@ dd {
   table {
     min-width: 480px;
   }
+}
+
+.toolbar select {
+  padding: 7px;
+  border: 1px solid #a9bacb;
+  border-radius: 4px;
+  background: #fff;
+  color: #243140;
 }

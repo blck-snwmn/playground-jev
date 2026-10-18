@@ -1,3 +1,4 @@
+import { readJevMetadata, readChoiceDetails, type JevMetadata } from "@playground-jev/common";
 import {
   BLACK,
   BOARD_SIZE,
@@ -11,12 +12,11 @@ import {
   type Position,
 } from "./game";
 /** Move and decision details returned by the local API. Imported as a type by the UI. */
-export interface JevMoveResult {
+export interface JevMoveResult extends Partial<JevMetadata> {
   move: number;
   elapsed: number;
-  confidence?: number;
+  confidence?: number | null;
   probabilities?: Record<string, number>;
-  model?: string;
 }
 
 const JEV_API_URL = "https://api.typesafe.ai/v1/systemone";
@@ -75,11 +75,10 @@ export function buildJevRequest(position: Position, model: string) {
 }
 
 interface JevResponse {
-  model?: string;
   answers?: {
     move?: {
       choice?: string;
-      confidence?: number;
+      confidence?: number | null;
       probabilities?: Record<string, number>;
     };
   };
@@ -120,8 +119,7 @@ export async function chooseJevMove(
   return {
     move,
     elapsed: Math.round(performance.now() - startedAt),
-    confidence: answer?.confidence,
-    probabilities: answer?.probabilities,
-    model: data.model,
+    ...readChoiceDetails(answer),
+    ...readJevMetadata(data, model),
   };
 }

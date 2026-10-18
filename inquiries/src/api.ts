@@ -1,3 +1,4 @@
+import { DEFAULT_JEV_MODEL, isJevModel } from "@playground-jev/common";
 import { inquiries } from "./data";
 import { classifyInquiry } from "./jev";
 
@@ -6,9 +7,11 @@ export async function handleTriage(request: Request): Promise<Response> {
     return Response.json({ error: "Please run classification from this page." }, { status: 403 });
   }
   let id: unknown;
+  let model: unknown;
   try {
     const body: unknown = await request.json();
     id = body && typeof body === "object" && "id" in body ? body.id : undefined;
+    model = body && typeof body === "object" && "model" in body ? body.model : DEFAULT_JEV_MODEL;
   } catch {
     return Response.json({ error: "Could not read the request." }, { status: 400 });
   }
@@ -16,6 +19,8 @@ export async function handleTriage(request: Request): Promise<Response> {
   if (!inquiry) {
     return Response.json({ error: "Inquiry not found." }, { status: 400 });
   }
+  if (!isJevModel(model))
+    return Response.json({ error: "Unsupported Jev model." }, { status: 400 });
   const apiKey = process.env.JEV_API_KEY;
   if (!apiKey) {
     return Response.json(
@@ -26,7 +31,7 @@ export async function handleTriage(request: Request): Promise<Response> {
     );
   }
   try {
-    return Response.json(await classifyInquiry(inquiry, apiKey));
+    return Response.json(await classifyInquiry(inquiry, apiKey, model));
   } catch {
     // Never return upstream bodies or credentials to the browser.
     return Response.json(

@@ -1,3 +1,4 @@
+import { DEFAULT_JEV_MODEL, JEV_MODELS, isJevModel } from "@playground-jev/common";
 import page from "./index.html";
 import { isPosition, moveCandidates } from "./game";
 import { appendLog, isLogContext, isUuid } from "./log";
@@ -13,6 +14,9 @@ export async function handleMove(request: Request): Promise<Response> {
   }
   if (!isPosition(position) || !isLogContext(position))
     return Response.json({ error: "No valid placements available." }, { status: 400 });
+  const model = "model" in position ? position.model : DEFAULT_JEV_MODEL;
+  if (!isJevModel(model))
+    return Response.json({ error: "Unsupported Jev model." }, { status: 400 });
   const candidates = moveCandidates(position);
   if (!candidates.length)
     return Response.json({ error: "No valid placements available." }, { status: 400 });
@@ -23,7 +27,7 @@ export async function handleMove(request: Request): Promise<Response> {
       { status: 503 },
     );
   // Build once: send, validate, and log the same choices and request.
-  const jevRequest = buildJevRequest(position, "jev-latest", candidates);
+  const jevRequest = buildJevRequest(position, model, candidates);
   const requestId = crypto.randomUUID();
   let result: Awaited<ReturnType<typeof chooseMove>>;
   try {
@@ -102,7 +106,11 @@ if (import.meta.main) {
     routes: {
       "/": page,
       "/api/status": () =>
-        Response.json({ configured: !!process.env.JEV_API_KEY, model: "jev-latest" }),
+        Response.json({
+          configured: !!process.env.JEV_API_KEY,
+          model: DEFAULT_JEV_MODEL,
+          models: JEV_MODELS,
+        }),
       "/api/jev": { POST: handleMove },
       "/api/log": { POST: handleEvent },
     },

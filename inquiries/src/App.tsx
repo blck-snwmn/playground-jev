@@ -1,3 +1,10 @@
+import {
+  DEFAULT_JEV_MODEL,
+  JEV_MODELS,
+  isJevModel,
+  downloadJson,
+  type JevModel,
+} from "@playground-jev/common";
 import { useRef, useState } from "react";
 import type { TriageResult } from "./schema";
 import { inquiries, type Inquiry } from "./data";
@@ -11,6 +18,8 @@ import {
 } from "./triage";
 
 export default function App() {
+  const [model, setModel] = useState<JevModel>(DEFAULT_JEV_MODEL);
+  const [runs, setRuns] = useState<{ inquiry: Inquiry; result: TriageResult }[]>([]);
   const [selectedId, setSelectedId] = useState(inquiries[0].id);
   const [results, setResults] = useState<Partial<Record<string, TriageResult>>>({});
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
@@ -19,7 +28,8 @@ export default function App() {
   const running = useRef(false);
   const [threshold, setThreshold] = useState(0.8);
   const selected = inquiries.find((item) => item.id === selectedId)!;
-  const result = results[selectedId];
+  const keyFor = (id: string) => `${model}/${id}`;
+  const result = results[keyFor(selectedId)];
   async function classify(items: Inquiry[]) {
     if (running.current) return;
     running.current = true;
@@ -27,13 +37,14 @@ export default function App() {
     try {
       // Sequential requests keep the sample simple and avoid a burst of API calls.
       for (const item of items) {
+        const key = keyFor(item.id);
         setPendingId(item.id);
-        setErrors((previous) => ({ ...previous, [item.id]: "" }));
+        setErrors((previous) => ({ ...previous, [key]: "" }));
         try {
           const response = await fetch("/api/triage", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: item.id }),
+            body: JSON.stringify({ id: item.id, model }),
             signal: AbortSignal.timeout(35_000),
           });
           if (!response.ok) {
@@ -41,11 +52,12 @@ export default function App() {
             throw new Error(data.error);
           }
           const data = (await response.json()) as TriageResult;
-          setResults((previous) => ({ ...previous, [item.id]: data }));
+          setResults((previous) => ({ ...previous, [key]: data }));
+          setRuns((previous) => [...previous, { inquiry: item, result: data }]);
         } catch (error) {
           setErrors((previous) => ({
             ...previous,
-            [item.id]:
+            [key]:
               error instanceof Error ? error.message : "Classification failed. Please try again.",
           }));
           // Stop a batch on failure so a missing key or outage doesn't repeat requests.
@@ -62,13 +74,44 @@ export default function App() {
   return (
     <>
       <div className="toolbar">
+        <label htmlFor="model">Jev model</label>
+        <select
+          id="model"
+          value={model}
+          disabled={busy}
+          onChange={(event) => {
+            if (isJevModel(event.target.value)) setModel(event.target.value);
+          }}
+        >
+          {JEV_MODELS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <button
+          disabled={!runs.length}
+          onClick={() =>
+            downloadJson("inquiry-results.json", {
+              schema: 1,
+              exportedAt: new Date().toISOString(),
+              runs,
+            })
+          }
+        >
+          Download results JSON
+        </button>
         <button
           disabled={busy}
-          onClick={() => void classify(inquiries.filter((item) => !results[item.id]))}
+          onClick={() => void classify(inquiries.filter((item) => !results[keyFor(item.id)]))}
         >
           Classify all pending inquiries
         </button>
       </div>
+      <p className="note">
+        Results are kept separately for each model until you reload the page. Download JSON to save
+        all runs, including repeated classifications.
+      </p>
       <div className="threshold">
         <label htmlFor="threshold">
           Department recommendation threshold: {Math.round(threshold * 100)}%
@@ -91,7 +134,7 @@ export default function App() {
       <output className="status">
         {busy
           ? `Classifying ${pendingId}…`
-          : `${inquiries.length} inquiries · ${inquiries.filter((item) => results[item.id]).length} classified`}
+          : `${inquiries.length} inquiries · ${inquiries.filter((item) => results[keyFor(item.id)]).length} classified`}
       </output>
 
       <div className="workspace">
@@ -108,7 +151,7 @@ export default function App() {
             </thead>
             <tbody>
               {inquiries.map((item) => {
-                const answer = results[item.id];
+                const answer = results[keyFor(item.id)];
                 return (
                   <tr
                     key={item.id}
@@ -125,7 +168,7 @@ export default function App() {
                         {item.title}
                       </button>
                       {pendingId === item.id && <small>Classifying…</small>}
-                      {errors[item.id] && (
+                      {errors[keyFor(item.id)] && (
                         <small className="error">Classification failed: see details</small>
                       )}
                     </td>
@@ -158,9 +201,9 @@ export default function App() {
           <button disabled={busy} onClick={() => void classify([selected])}>
             {result ? "Classify again" : "Classify this inquiry"}
           </button>
-          {errors[selectedId] && (
+          {errors[keyFor(selectedId)] && (
             <p role="alert" className="error">
-              {errors[selectedId]}
+              {errors[keyFor(selectedId)]}
               {result && " Showing the previous result."}
             </p>
           )}
@@ -220,7 +263,14 @@ export default function App() {
                   </div>
                 ))}
               </details>
-              <small>jev-latest · {result.elapsed} ms</small>
+              <small>
+                Requested: {result.requestedModel}
+                <br />
+                Returned: {result.model ?? "Unavailable"}
+                <br />
+                {result.elapsed} ms · {result.usage.input_tokens ?? "—"} input tokens /{" "}
+                {result.usage.output_tokens ?? "—"} output tokens
+              </small>
             </div>
           ) : (
             <p className="note">

@@ -1,3 +1,4 @@
+import type { JevMetadata } from "@playground-jev/common";
 import { z } from "zod";
 
 const probability = z.number().min(0).max(1);
@@ -33,4 +34,4 @@ export const answersSchema = z.object({
 type Answers = z.infer<typeof answersSchema>;
 
 export type DepartmentAnswer = Answers["department"];
-export type TriageResult = Answers & { elapsed: number };
+export type TriageResult = Answers & JevMetadata & { elapsed: number };

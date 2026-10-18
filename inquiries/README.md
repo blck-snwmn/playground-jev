@@ -15,6 +15,13 @@ bun run dev
 
 Open http://127.0.0.1:4325. Use `PORT` to change the port.
 
+Select `jev-1.13.0` or `jev-1.14.0` before classifying. The table shows results
+for the selected model; switching models preserves previous results until
+page reload. **Download results JSON** saves all successful runs from this
+session, including repeated classifications, inquiry text, requested and
+returned models, latency, token usage, and recording time. Missing upstream
+metadata is saved as `null`.
+
 ## Commands
 
 ```sh

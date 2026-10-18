@@ -12,7 +12,7 @@ afterEach(() => {
   if (originalKey === undefined) delete process.env.JEV_API_KEY;
   else process.env.JEV_API_KEY = originalKey;
 });
-function moveRequest() {
+function moveRequest(model: unknown = "jev-1.13.0") {
   return new Request("http://localhost:3001/api/jev", {
     method: "POST",
     headers: { origin: "http://localhost:3001", "Content-Type": "application/json" },
@@ -22,20 +22,34 @@ function moveRequest() {
       next: "I",
       gameId: crypto.randomUUID(),
       turn: 1,
+      model,
     }),
   });
 }
 test("logs the exact request sent to Jev", async () => {
   process.env.JEV_API_KEY = "test-key";
   fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(
-    Response.json({ answers: { move: { choice: "p0" } } }),
+    Response.json({
+      model: "jev-1.14.0",
+      usage: { input_tokens: 240, output_tokens: 10 },
+      answers: { move: { choice: "p0", confidence: 0.7, probabilities: { p0: 0.8 } } },
+    }),
   );
   logSpy = spyOn(logs, "appendLog").mockResolvedValue(undefined);
-  const response = await handleMove(moveRequest());
+  const response = await handleMove(moveRequest("jev-1.14.0"));
   expect(response.status).toBe(200);
   const sentBody = fetchSpy.mock.calls[0][1]?.body;
   if (typeof sentBody !== "string") throw new Error("Expected a JSON request body");
   expect(JSON.stringify(logSpy.mock.calls[0][1].request)).toBe(sentBody);
+  expect(JSON.parse(sentBody)).toHaveProperty("model", "jev-1.14.0");
+  expect(logSpy.mock.calls[0][1].result).toMatchObject({
+    requestedModel: "jev-1.14.0",
+    model: "jev-1.14.0",
+    usage: { input_tokens: 240, output_tokens: 10 },
+    confidence: 0.7,
+    probabilities: { p0: 0.8 },
+  });
+  expect(await response.json()).toHaveProperty("requestedModel", "jev-1.14.0");
 });
 test("reports log failures separately from successful Jev calls", async () => {
   process.env.JEV_API_KEY = "test-key";
@@ -125,4 +139,14 @@ test("accepts hold choices and logs the hold and preview state", async () => {
       },
     },
   });
+});
+
+test("rejects unsupported models without a request or decision log", async () => {
+  process.env.JEV_API_KEY = "test-key";
+  fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected API call"));
+  logSpy = spyOn(logs, "appendLog").mockResolvedValue(undefined);
+  for (const model of ["jev-latest", "other", null, 14])
+    expect((await handleMove(moveRequest(model))).status).toBe(400);
+  expect(fetchSpy).not.toHaveBeenCalled();
+  expect(logSpy).not.toHaveBeenCalled();
 });

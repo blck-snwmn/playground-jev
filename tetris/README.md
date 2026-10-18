@@ -17,6 +17,12 @@ bun run dev
 
 Open http://127.0.0.1:3001. Use `PORT` to change the port.
 
+Select a fixed Jev model before starting. The selection stays locked for the
+current game, including pauses and obstacle replanning. Reset the game to
+choose another model. The latest decision shows requested/returned models,
+latency, and input/output tokens; each decision log also retains confidence
+and candidate probabilities when available.
+
 ## Checks
 
 ```sh
