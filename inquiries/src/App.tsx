@@ -7,44 +7,62 @@ import {
 } from "@playground-jev/common";
 import { useRef, useState } from "react";
 import type { TriageResult } from "./schema";
-import { inquiries, type Inquiry } from "./data";
 import {
-  departments,
-  departmentSuggestion,
-  pressureLevels,
-  rankDepartments,
-  scorePercent,
-  urgencyLevels,
-} from "./triage";
+  INQUIRY_LANGUAGES,
+  inquiries,
+  isInquiryLanguage,
+  languageNames,
+  localizeInquiry,
+  type Inquiry,
+  type InquiryId,
+  type InquiryLanguage,
+} from "./data";
+import {
+  conditions,
+  pendingComparisons,
+  resultKey,
+  type Evaluation,
+  type Results,
+} from "./comparison";
+import { Comparison } from "./ComparisonTable";
+import { departmentSuggestion, pressureLevels, scorePercent, urgencyLevels } from "./triage";
 
 export default function App() {
   const [model, setModel] = useState<JevModel>(DEFAULT_JEV_MODEL);
+  const [language, setLanguage] = useState<InquiryLanguage>("en");
   const [runs, setRuns] = useState<{ inquiry: Inquiry; result: TriageResult }[]>([]);
-  const [selectedId, setSelectedId] = useState(inquiries[0].id);
-  const [results, setResults] = useState<Partial<Record<string, TriageResult>>>({});
+  const [selectedId, setSelectedId] = useState<InquiryId>(inquiries[0].id);
+  const [results, setResults] = useState<Results>({});
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
-  const [pendingId, setPendingId] = useState<string>();
+  const [pending, setPending] = useState<Evaluation>();
   const [busy, setBusy] = useState(false);
+  const [batchStatus, setBatchStatus] = useState("");
   const running = useRef(false);
   const [threshold, setThreshold] = useState(0.8);
   const selected = inquiries.find((item) => item.id === selectedId)!;
-  const keyFor = (id: string) => `${model}/${id}`;
-  const result = results[keyFor(selectedId)];
-  async function classify(items: Inquiry[]) {
-    if (running.current) return;
+  const condition = { model, language };
+  const pendingKey = pending ? resultKey(pending.inquiry.id, pending) : undefined;
+  const missing = pendingComparisons(selected, results);
+  const pendingInquiries = inquiries.filter((item) => !results[resultKey(item.id, condition)]);
+
+  async function classify(evaluations: Evaluation[]) {
+    if (running.current || !evaluations.length) return;
     running.current = true;
     setBusy(true);
+    setBatchStatus("");
+    let completed = 0;
     try {
-      // Sequential requests keep the sample simple and avoid a burst of API calls.
-      for (const item of items) {
-        const key = keyFor(item.id);
-        setPendingId(item.id);
+      // Sequential calls avoid bursts; one failure stops the rest of the batch.
+      for (const evaluation of evaluations) {
+        const { inquiry, model, language } = evaluation;
+        const key = resultKey(inquiry.id, evaluation);
+        setPending(evaluation);
         setErrors((previous) => ({ ...previous, [key]: "" }));
         try {
           const response = await fetch("/api/triage", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: item.id, model }),
+            body: JSON.stringify({ id: inquiry.id, model, language }),
             signal: AbortSignal.timeout(35_000),
           });
           if (!response.ok) {
@@ -53,19 +71,26 @@ export default function App() {
           }
           const data = (await response.json()) as TriageResult;
           setResults((previous) => ({ ...previous, [key]: data }));
-          setRuns((previous) => [...previous, { inquiry: item, result: data }]);
+          setRuns((previous) => [
+            ...previous,
+            { inquiry: localizeInquiry(inquiry, language), result: data },
+          ]);
+          completed++;
         } catch (error) {
           setErrors((previous) => ({
             ...previous,
             [key]:
               error instanceof Error ? error.message : "Classification failed. Please try again.",
           }));
-          // Stop a batch on failure so a missing key or outage doesn't repeat requests.
-          break;
+          setBatchStatus(
+            `Stopped at ${inquiry.id}, ${model}, ${languageNames[language]}. ${completed} completed; ${evaluations.length - completed - 1} not attempted.`,
+          );
+          return;
         }
       }
+      setBatchStatus(`${completed} ${completed === 1 ? "request" : "requests"} completed.`);
     } finally {
-      setPendingId(undefined);
+      setPending(undefined);
       setBusy(false);
       running.current = false;
     }
@@ -74,18 +99,19 @@ export default function App() {
   return (
     <>
       <div className="toolbar">
-        <label htmlFor="model">Jev model</label>
+        <label htmlFor="inquiry">Inquiry</label>
         <select
-          id="model"
-          value={model}
+          id="inquiry"
+          value={selectedId}
           disabled={busy}
           onChange={(event) => {
-            if (isJevModel(event.target.value)) setModel(event.target.value);
+            const inquiry = inquiries.find((item) => item.id === event.target.value);
+            if (inquiry) setSelectedId(inquiry.id);
           }}
         >
-          {JEV_MODELS.map((option) => (
-            <option key={option} value={option}>
-              {option}
+          {inquiries.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.id} — {item.title}
             </option>
           ))}
         </select>
@@ -93,7 +119,7 @@ export default function App() {
           disabled={!runs.length}
           onClick={() =>
             downloadJson("inquiry-results.json", {
-              schema: 1,
+              schema: 2,
               exportedAt: new Date().toISOString(),
               runs,
             })
@@ -101,16 +127,55 @@ export default function App() {
         >
           Download results JSON
         </button>
-        <button
-          disabled={busy}
-          onClick={() => void classify(inquiries.filter((item) => !results[keyFor(item.id)]))}
-        >
-          Classify all pending inquiries
-        </button>
+      </div>
+      <div className="inquiry-texts">
+        {INQUIRY_LANGUAGES.map((language) => {
+          const inquiry = localizeInquiry(selected, language);
+          return (
+            <article lang={language} key={language}>
+              <small>{languageNames[language]}</small>
+              <h2>{inquiry.title}</h2>
+              <p>{inquiry.body}</p>
+            </article>
+          );
+        })}
       </div>
       <p className="note">
-        Results are kept separately for each model until you reload the page. Download JSON to save
-        all runs, including repeated classifications.
+        Only the inquiry title and body change language. Service context, questions, and scoring
+        scales stay in English.
+      </p>
+      <div className="toolbar">
+        <button disabled={busy || !missing.length} onClick={() => void classify(missing)}>
+          Run missing conditions ({missing.length} {missing.length === 1 ? "request" : "requests"})
+        </button>
+        <button
+          disabled={busy || missing.length === conditions.length}
+          onClick={() =>
+            void classify(conditions.map((condition) => ({ inquiry: selected, ...condition })))
+          }
+        >
+          Run all 4 again
+        </button>
+      </div>
+      <output className="status" aria-live="polite">
+        {pending
+          ? `Classifying ${pending.inquiry.id}, ${pending.model}, ${languageNames[pending.language]}…`
+          : batchStatus || "Choose a condition or run the four-condition comparison."}
+      </output>
+      <Comparison
+        key={selectedId}
+        inquiryId={selectedId}
+        results={results}
+        errors={errors}
+        pendingKey={pendingKey}
+        busy={busy}
+        threshold={threshold}
+        classify={(condition) => void classify([{ inquiry: selected, ...condition }])}
+      />
+      <p className="note comparison-note">
+        Scores show positions on a 0–100 scale, not probabilities of urgency or pressure. Confidence
+        is calculated from the probability distribution; it is not an accuracy score. Scroll the
+        table horizontally on a narrow screen.
       </p>
       <div className="threshold">
         <label htmlFor="threshold">
@@ -131,16 +196,60 @@ export default function App() {
           department is unknown.
         </small>
       </div>
-      <output className="status">
-        {busy
-          ? `Classifying ${pendingId}…`
-          : `${inquiries.length} inquiries · ${inquiries.filter((item) => results[keyFor(item.id)]).length} classified`}
-      </output>
-
-      <div className="workspace">
+      <p className="note">
+        Each column keeps its latest successful result until reload. Download JSON to save all
+        successful runs, including reruns, their language, and the text evaluated. These samples
+        have no reference labels; differences alone do not establish which model is more accurate.
+      </p>
+      <details className="overview">
+        <summary>All 12 inquiries</summary>
+        <div className="toolbar">
+          <label htmlFor="model">Jev model</label>
+          <select
+            id="model"
+            value={model}
+            disabled={busy}
+            onChange={(event) => {
+              if (isJevModel(event.target.value)) setModel(event.target.value);
+            }}
+          >
+            {JEV_MODELS.map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))}
+          </select>
+          <label htmlFor="language">Inquiry language</label>
+          <select
+            id="language"
+            value={language}
+            disabled={busy}
+            onChange={(event) => {
+              if (isInquiryLanguage(event.target.value)) setLanguage(event.target.value);
+            }}
+          >
+            {INQUIRY_LANGUAGES.map((language) => (
+              <option key={language} value={language}>
+                {languageNames[language]}
+              </option>
+            ))}
+          </select>
+          <button
+            disabled={busy || !pendingInquiries.length}
+            onClick={() =>
+              void classify(pendingInquiries.map((inquiry) => ({ inquiry, ...condition })))
+            }
+          >
+            Classify pending inquiries ({pendingInquiries.length}{" "}
+            {pendingInquiries.length === 1 ? "request" : "requests"})
+          </button>
+        </div>
         <div className="table-scroll">
-          <table>
-            <caption className="sr-only">Inquiry list</caption>
+          <table className="inquiry-list">
+            <caption>
+              {model}, {languageNames[language]}: {inquiries.length - pendingInquiries.length} of{" "}
+              {inquiries.length} classified
+            </caption>
             <thead>
               <tr>
                 <th scope="col">Inquiry</th>
@@ -151,33 +260,33 @@ export default function App() {
             </thead>
             <tbody>
               {inquiries.map((item) => {
-                const answer = results[keyFor(item.id)];
+                const key = resultKey(item.id, condition);
+                const answer = results[key];
                 return (
-                  <tr
-                    key={item.id}
-                    className={selectedId === item.id ? "selected" : undefined}
-                    onClick={() => setSelectedId(item.id)}
-                  >
+                  <tr key={item.id} className={selectedId === item.id ? "selected" : undefined}>
                     <td>
                       <button
                         className="ticket"
+                        disabled={busy}
                         aria-pressed={selectedId === item.id}
-                        onClick={() => setSelectedId(item.id)}
+                        onClick={() => {
+                          setSelectedId(item.id);
+                          document.getElementById("inquiry")?.focus();
+                        }}
                       >
                         <small>{item.id}</small>
-                        {item.title}
+                        <span lang={language}>{localizeInquiry(item, language).title}</span>
                       </button>
-                      {pendingId === item.id && <small>Classifying…</small>}
-                      {errors[keyFor(item.id)] && (
-                        <small className="error">Classification failed: see details</small>
+                      {pendingKey === key && <small>Classifying…</small>}
+                      {errors[key] && (
+                        <small className="error">
+                          Classification failed. Open this inquiry to see details.
+                          {answer && " Showing previous result."}
+                        </small>
                       )}
                     </td>
                     <td>
-                      {answer ? (
-                        <Score value={scorePercent(answer.urgency.score, urgencyLevels)} />
-                      ) : (
-                        "—"
-                      )}
+                      {answer ? `${scorePercent(answer.urgency.score, urgencyLevels)}/100` : "—"}
                     </td>
                     <td>
                       {answer ? `${scorePercent(answer.pressure.score, pressureLevels)}/100` : "—"}
@@ -193,101 +302,7 @@ export default function App() {
             </tbody>
           </table>
         </div>
-
-        <section className="detail" aria-labelledby="detail-title">
-          <small>{selected.id}</small>
-          <h2 id="detail-title">{selected.title}</h2>
-          <p className="body">{selected.body}</p>
-          <button disabled={busy} onClick={() => void classify([selected])}>
-            {result ? "Classify again" : "Classify this inquiry"}
-          </button>
-          {errors[keyFor(selectedId)] && (
-            <p role="alert" className="error">
-              {errors[keyFor(selectedId)]}
-              {result && " Showing the previous result."}
-            </p>
-          )}
-          {result ? (
-            <div className="result">
-              <h3>Results</h3>
-              <dl>
-                <div>
-                  <dt>Urgency</dt>
-                  <dd>{scorePercent(result.urgency.score, urgencyLevels)}/100</dd>
-                </div>
-                <div>
-                  <dt>Request pressure</dt>
-                  <dd>{scorePercent(result.pressure.score, pressureLevels)}/100</dd>
-                </div>
-                <div>
-                  <dt>Department</dt>
-                  <dd>{departmentSuggestion(result.department, threshold)}</dd>
-                </div>
-                <div>
-                  <dt>Department confidence</dt>
-                  <dd>{Math.round(result.department.confidence * 100)}%</dd>
-                </div>
-              </dl>
-              <h3>Department probabilities</h3>
-              <ul className="probabilities">
-                {rankDepartments(result.department).map(([department, value]) => (
-                  <li key={department}>
-                    <span>{departments[department]}</span>
-                    <span>{(value * 100).toFixed(1)}%</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="note">
-                Candidate probabilities and overall confidence are separate values. Confidence does
-                not guarantee a correct result.
-              </p>
-              <details>
-                <summary>Urgency and request pressure breakdown</summary>
-                {(
-                  [
-                    ["Urgency", result.urgency, urgencyLevels],
-                    ["Request pressure", result.pressure, pressureLevels],
-                  ] as const
-                ).map(([label, answer, levels]) => (
-                  <div key={label}>
-                    <h3>
-                      {label} (confidence {Math.round(answer.confidence * 100)}%)
-                    </h3>
-                    <ul>
-                      {Object.entries(answer.probabilities).map(([score, probability]) => (
-                        <li key={score}>
-                          {levels[Number(score)]}: {(probability * 100).toFixed(1)}%
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </details>
-              <small>
-                Requested: {result.requestedModel}
-                <br />
-                Returned: {result.model ?? "Unavailable"}
-                <br />
-                {result.elapsed} ms · {result.usage.input_tokens ?? "—"} input tokens /{" "}
-                {result.usage.output_tokens ?? "—"} output tokens
-              </small>
-            </div>
-          ) : (
-            <p className="note">
-              Classify this inquiry to see urgency, request pressure, and department suggestions.
-            </p>
-          )}
-        </section>
-      </div>
+      </details>
     </>
-  );
-}
-
-function Score({ value }: { value: number }) {
-  return (
-    <div className="score">
-      <meter min="0" max="100" value={value} aria-label={`Urgency ${value}/100`} />
-      <span>{value}/100</span>
-    </div>
   );
 }

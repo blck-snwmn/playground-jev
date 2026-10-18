@@ -68,6 +68,74 @@ export const inquiries = [
     title: "We would like advice on rolling this out to our other stores",
     body: "We started using the service at two stores last month and would like to expand to the rest. Each store manager handles end-of-day closing differently, and headquarters is unsure how to standardize the process. Could we discuss how to proceed, including training our staff?",
   },
-];
+] as const;
 
-export type Inquiry = (typeof inquiries)[number];
+export type InquiryId = (typeof inquiries)[number]["id"];
+export interface Inquiry {
+  id: InquiryId;
+  title: string;
+  body: string;
+}
+
+export const INQUIRY_LANGUAGES = ["en", "ja"] as const;
+export type InquiryLanguage = (typeof INQUIRY_LANGUAGES)[number];
+export const languageNames: Record<InquiryLanguage, string> = { en: "English", ja: "日本語" };
+
+export function isInquiryLanguage(value: unknown): value is InquiryLanguage {
+  return INQUIRY_LANGUAGES.some((language) => language === value);
+}
+
+const japaneseInquiries: Record<InquiryId, Pick<Inquiry, "title" | "body">> = {
+  "T-101": {
+    title: "売上一覧に見覚えのない店舗が表示されています",
+    body: "急ぎではありませんが、今朝ログインしたところ、当社のものではない店舗が売上一覧に表示されていることに気づきました。店舗名をクリックすると、その店舗の日ごとの売上金額も見られます。ログアウトして入り直しても、まだ表示されています。こちらで誤って何かの設定を変更してしまったのでしょうか。",
+  },
+  "T-102": {
+    title: "店舗ロゴの位置がずれています",
+    body: "今すぐ直してください。設定画面で、店舗ロゴが枠から少し右にはみ出しています。画像をアップロードし直しても変わりません。会計や売上レポートは使えていますが、毎日見る画面なので気になります。",
+  },
+  "T-103": {
+    title: "全店舗で会計を完了できません",
+    body: "時間のあるときに見てもらえますか。午前9時の開店以降、全12店舗で会計を完了しようとするとエラーが出ています。別の端末を使っても、現金払いに切り替えても、売上を登録できません。お客様がレジで待っています。",
+  },
+  "T-104": {
+    title: "全店舗で会計を完了できません",
+    body: "今すぐ解決してください！ 午前9時の開店以降、全12店舗で会計を完了しようとするとエラーが出ています。別の端末を使っても、現金払いに切り替えても、売上を登録できません。お客様がレジで待っています。",
+  },
+  "T-105": {
+    title: "売上CSVに社内の店舗コードを入れたいです",
+    body: "できるだけ早く対応していただけると助かります。本部で売上CSVを取り込むたびに、社内の店舗コードを手作業で追加しています。来月の報告から、店舗名と一緒に店舗コードも出力できると助かります。設定を探しましたが、そのような項目は見つかりませんでした。",
+  },
+  "T-106": {
+    title: "9月分の利用料金が二重に請求されています",
+    body: "カードの利用明細に、9月分のMiseNote利用料金として同じ金額の確定済みの請求が2件あります。プランや店舗数は変更していません。二重請求であれば、片方を返金してもらえますか。",
+  },
+  "T-107": {
+    title: "利用料金について確認したいです",
+    body: "MiseNoteの請求画面で明細を開こうとすると、ときどきエラーになります。再読み込みすると開けたのですが、今月の金額が先月より高くなっていました。表示の問題なのか、料金が変わったのかを確認したいです。支払期限は今月末です。",
+  },
+  "T-108": {
+    title: "CSVを出力するにはどうすればよいですか",
+    body: "全店舗の先月の売上をCSVで出力したいです。どの画面を使えばよいですか。来週の本部会議で必要です。現在は、店舗ごとの画面から数字を手作業で転記しています。",
+  },
+  "T-109": {
+    title: "動かなくなりました",
+    body: "少し前から動かなくなっています。確認してもらえますか。",
+  },
+  "T-110": {
+    title: "店舗ロゴの位置がずれています",
+    body: "時間のあるときで構いません。設定画面で、店舗ロゴが枠から少し右にはみ出しています。画像をアップロードし直しても変わりません。会計や売上レポートは使えていますが、毎日見る画面なので気になります。",
+  },
+  "T-111": {
+    title: "10店舗追加する場合の見積もりをお願いできますか",
+    body: "11月に10店舗を追加する予定です。年間契約の場合の料金も含めて、見積もりを送ってもらえますか。来週金曜日の社内承認会議に間に合うように受け取りたいです。",
+  },
+  "T-112": {
+    title: "ほかの店舗への展開について相談したいです",
+    body: "先月から2店舗で利用を始め、残りの全店舗にも広げたいと考えています。営業終了時の締め作業の進め方が店長によって異なり、本部では手順をどう統一すればよいか分からずにいます。従業員への研修も含め、進め方を相談できますか。",
+  },
+};
+
+export function localizeInquiry(inquiry: Inquiry, language: InquiryLanguage): Inquiry {
+  return language === "en" ? inquiry : { id: inquiry.id, ...japaneseInquiries[inquiry.id] };
+}

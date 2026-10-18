@@ -1,6 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { handleTriage } from "./api";
-import { inquiries } from "./data";
+import { inquiries, localizeInquiry } from "./data";
 import { startServer } from "./server";
 
 const originalKey = process.env.JEV_API_KEY;
@@ -65,18 +65,27 @@ test("returns validated classifications through the POST handler", async () => {
     }),
   );
   const response = await handleTriage(
-    request(JSON.stringify({ id: inquiries[0].id, model: "jev-1.14.0" })),
+    request(JSON.stringify({ id: inquiries[0].id, model: "jev-1.14.0", language: "ja" })),
   );
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({
     ...answers,
     requestedModel: "jev-1.14.0",
+    language: "ja",
     model: "jev-1.14.0",
     usage: { input_tokens: 120, output_tokens: 30 },
   });
   const body = fetchSpy.mock.calls[0][1]?.body;
   if (typeof body !== "string") throw new Error("Expected JSON");
-  expect(JSON.parse(body)).toHaveProperty("model", "jev-1.14.0");
+  expect(JSON.parse(body)).toMatchObject({
+    model: "jev-1.14.0",
+    state: {
+      inquiry: {
+        title: localizeInquiry(inquiries[0], "ja").title,
+        body: localizeInquiry(inquiries[0], "ja").body,
+      },
+    },
+  });
 });
 
 test("hides upstream errors from the API response", async () => {
@@ -120,5 +129,16 @@ test("rejects unsupported model IDs before classification", async () => {
     expect(
       (await handleTriage(request(JSON.stringify({ id: inquiries[0].id, model })))).status,
     ).toBe(400);
+  expect(fetchSpy).not.toHaveBeenCalled();
+});
+
+test("rejects invalid languages without sending an upstream request", async () => {
+  process.env.JEV_API_KEY = "test-key";
+  fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected API call"));
+  for (const language of ["fr", "", null, 1, {}]) {
+    expect(
+      (await handleTriage(request(JSON.stringify({ id: inquiries[0].id, language })))).status,
+    ).toBe(400);
+  }
   expect(fetchSpy).not.toHaveBeenCalled();
 });

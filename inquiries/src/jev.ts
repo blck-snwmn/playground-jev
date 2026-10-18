@@ -1,10 +1,15 @@
 import { DEFAULT_JEV_MODEL, readJevMetadata, type JevModel } from "@playground-jev/common";
 import { z } from "zod";
 import { answersSchema, type TriageResult } from "./schema";
-import { context, type Inquiry } from "./data";
+import { context, localizeInquiry, type Inquiry, type InquiryLanguage } from "./data";
 import { departments, departmentRoles, pressureLevels, urgencyLevels } from "./triage";
 
-export function buildJevRequest(inquiry: Inquiry, model: JevModel = DEFAULT_JEV_MODEL) {
+export function buildJevRequest(
+  inquiry: Inquiry,
+  model: JevModel = DEFAULT_JEV_MODEL,
+  language: InquiryLanguage = "en",
+) {
+  const localized = localizeInquiry(inquiry, language);
   return {
     model,
     state: {
@@ -12,7 +17,7 @@ export function buildJevRequest(inquiry: Inquiry, model: JevModel = DEFAULT_JEV_
       departments: Object.entries(departmentRoles)
         .filter(([id]) => id !== "unknown")
         .map(([id, role]) => ({ name: departments[id as keyof typeof departments], role })),
-      inquiry: { title: inquiry.title, body: inquiry.body },
+      inquiry: { title: localized.title, body: localized.body },
     },
     questions: {
       urgency: {
@@ -44,6 +49,7 @@ export async function classifyInquiry(
   inquiry: Inquiry,
   apiKey: string,
   model: JevModel = DEFAULT_JEV_MODEL,
+  language: InquiryLanguage = "en",
 ): Promise<TriageResult> {
   const started = performance.now();
   const response = await fetch("https://api.typesafe.ai/v1/systemone", {
@@ -52,7 +58,7 @@ export async function classifyInquiry(
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(buildJevRequest(inquiry, model)),
+    body: JSON.stringify(buildJevRequest(inquiry, model, language)),
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error("Jev request failed");
@@ -60,6 +66,7 @@ export async function classifyInquiry(
   const data = z.object({ answers: answersSchema }).parse(raw);
   return {
     ...data.answers,
+    language,
     elapsed: Math.round(performance.now() - started),
     ...readJevMetadata(raw, model),
   };

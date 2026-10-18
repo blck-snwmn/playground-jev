@@ -27,7 +27,8 @@ shown as unavailable and saved as `null`.
 
 Othello and Tetris keep the chosen model for the entire game. Othello exports
 its current game as JSON; Tetris saves decisions in its existing JSONL logs.
-Inquiries keeps results separately per model and exports every successful run
+Inquiries compares English and Japanese versions across both models, keeps
+results separately per model and language, and exports every successful run
 in the current browser session. Download browser results before reloading or
 starting a new Othello game.
 

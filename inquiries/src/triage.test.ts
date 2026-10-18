@@ -86,6 +86,7 @@ test("Jev transport returns validated results and hides upstream error details",
   const fetchMock = spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ answers }));
   try {
     const result = await classifyInquiry(inquiries[0], "test-key");
+    expect(result.language).toBe("en");
     expect(result.department.choice).toBe("billing");
     expect(result.urgency.score).toBe(1.5);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.typesafe.ai/v1/systemone");

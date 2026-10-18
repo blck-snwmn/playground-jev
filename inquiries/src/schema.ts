@@ -1,5 +1,6 @@
 import type { JevMetadata } from "@playground-jev/common";
 import { z } from "zod";
+import type { InquiryLanguage } from "./data";
 
 const probability = z.number().min(0).max(1);
 const score = z.object({
@@ -34,4 +35,4 @@ export const answersSchema = z.object({
 type Answers = z.infer<typeof answersSchema>;
 
 export type DepartmentAnswer = Answers["department"];
-export type TriageResult = Answers & JevMetadata & { elapsed: number };
+export type TriageResult = Answers & JevMetadata & { elapsed: number; language: InquiryLanguage };

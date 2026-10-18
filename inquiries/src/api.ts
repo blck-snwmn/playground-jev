@@ -1,5 +1,5 @@
 import { DEFAULT_JEV_MODEL, isJevModel } from "@playground-jev/common";
-import { inquiries } from "./data";
+import { inquiries, isInquiryLanguage } from "./data";
 import { classifyInquiry } from "./jev";
 
 export async function handleTriage(request: Request): Promise<Response> {
@@ -8,9 +8,11 @@ export async function handleTriage(request: Request): Promise<Response> {
   }
   let id: unknown;
   let model: unknown;
+  let language: unknown;
   try {
     const body: unknown = await request.json();
     id = body && typeof body === "object" && "id" in body ? body.id : undefined;
+    language = body && typeof body === "object" && "language" in body ? body.language : "en";
     model = body && typeof body === "object" && "model" in body ? body.model : DEFAULT_JEV_MODEL;
   } catch {
     return Response.json({ error: "Could not read the request." }, { status: 400 });
@@ -21,6 +23,8 @@ export async function handleTriage(request: Request): Promise<Response> {
   }
   if (!isJevModel(model))
     return Response.json({ error: "Unsupported Jev model." }, { status: 400 });
+  if (!isInquiryLanguage(language))
+    return Response.json({ error: "Unsupported inquiry language." }, { status: 400 });
   const apiKey = process.env.JEV_API_KEY;
   if (!apiKey) {
     return Response.json(
@@ -31,7 +35,7 @@ export async function handleTriage(request: Request): Promise<Response> {
     );
   }
   try {
-    return Response.json(await classifyInquiry(inquiry, apiKey, model));
+    return Response.json(await classifyInquiry(inquiry, apiKey, model, language));
   } catch {
     // Never return upstream bodies or credentials to the browser.
     return Response.json(
